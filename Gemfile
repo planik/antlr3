@@ -1,5 +1,8 @@
 source "https://rubygems.org"
 
+
+ruby '2.7.4'
+
 # main is a command-line app builder library used in the scripts
 gem "main", "4.2.0"
 
@@ -16,6 +19,7 @@ gem 'rake'
 gem "test-unit", "~> 1.2"
 # antlr tests use a rspec environment with a test/unit structure
 gem "rspec", "1.1.11"
+gem "rspec-core"#, "1.1.11"
 
 # code coverage
 #gem "rcov", "0.9.6"

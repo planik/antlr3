@@ -1,5 +1,23 @@
 = ANTLR 3 for Ruby
 
+=== Notizen von Optor ===
+2023-09-07: Auf Ruby3 gewechselt. Dieses gem funktioniert nicht mehr, da nicht mit Ruby3 kompatibel. Da es nicht mehr gepflegt wird, müssen wir es selber auf Ruby3 aktualiseren.
+
+==== Tests====
+Es gibt einen Testordner, die UNit Tests habe ich aber nur Teils zum Laufen bekommen. (Unter 2.7.4).
+Das funktioniert nun und gibt keinen Fehler: "bundle exec rspec test/unit/test-dfa.rb "
+
+* Musste zuerst rspec-core hinzufügen
+* Bei test-exception.rb gibt es einen Fehler (bundle exec rspec test/unit/test-exceptions.rb
+     NoMethodError:
+       undefined method `raise_error' for #<RSpec::ExampleGroups::ANTLR3Error:0x000055acc0bed468>
+     # ./test/unit/test-exceptions.rb:15:in `block (2 levels) in <top (required)>'
+* Bei bundle exec rspec test/unit/test-template.rb
+ undefined method `be_a_kind_of' for #<RSpec::ExampleGroups::ANTLR3TemplateGroupLoadingATemplateDefinitionFile::ItShouldBehaveLikeTemplateGroups:0x000055f1e0858b08>
+Die anderen Tests laufen durch
+
+
+
 ==== by Kyle Yetter (kcy5b@yahoo.com)
 
 * http://antlr.ohboyohboyohboy.org
