@@ -1,6 +1,4 @@
 #!/usr/bin/ruby
-# encoding: utf-8
-
 require 'antlr3'
 require 'test/unit'
 require 'spec'
@@ -17,27 +15,27 @@ class TestTokenSource < Test::Unit::TestCase
       @tokens = (1..4).map { |i| TrivialToken[i] }
       @tokens << TrivialToken[EOF]
     end
-    
+
     def next_token
       @tokens.shift
     end
   end
-  
+
   def test_iterator_interface
     src = TestSource.new
     tokens = []
     src.each do |token|
       tokens << token.type
     end
-    tokens.should == [1,2,3,4]
+    tokens.should == [1, 2, 3, 4]
   end
-  
 end
 
 class TestLexer < Test::Unit::TestCase
   class TLexer < Lexer
     @antlr_version = ANTLR3::ANTLR_VERSION.dup
   end
+
   def test_init
     stream = StringStream.new('foo')
     TLexer.new(stream)

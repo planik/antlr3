@@ -1,6 +1,4 @@
 #!/usr/bin/ruby
-# encoding: utf-8
-
 require 'antlr3/test/functional'
 require 'enhanced-test/messages'
 require 'enhanced-test/summary'
@@ -10,6 +8,6 @@ require 'enhanced-test/runner'
 
 at_exit do
   if error = $!
-    raise( error.pretty! )
+    raise(error.pretty!)
   end
 end

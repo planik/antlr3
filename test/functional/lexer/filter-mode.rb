@@ -1,17 +1,14 @@
 #!/usr/bin/ruby
-# encoding: utf-8
-
 require 'antlr3/test/functional'
 
 class TestFilterMode < ANTLR3::Test::Functional
-
-  inline_grammar( <<-'END' )
+  inline_grammar(<<-'END')
     lexer grammar Filter;
     options {
         language = Ruby;
         filter=true;
     }
-    
+
     IMPORT
       :  'import' WS QIDStar WS? ';'
       ;
@@ -19,7 +16,7 @@ class TestFilterMode < ANTLR3::Test::Functional
     RETURN
       :  'return' .* ';'
       ;
-    
+
     CLASS
       :  'class' WS ID WS? ('extends' WS QID WS?)?
         ('implements' WS QID WS? (',' WS? QID WS?)*)? '{'
@@ -28,18 +25,18 @@ class TestFilterMode < ANTLR3::Test::Functional
     COMMENT
         :   '/*' .* '*/'
         ;
-    
+
     STRING
         :  '"' (options {greedy=false;}: ESC | .)* '"'
       ;
-    
+
     CHAR
       :  '\'' (options {greedy=false;}: ESC | .)* '\''
       ;
-    
+
     WS  :   (' '|'\t'|'\n')+
         ;
-    
+
     fragment
     QID :  ID ('.' ID)*
       ;
@@ -52,7 +49,7 @@ class TestFilterMode < ANTLR3::Test::Functional
     QIDStar
       :  ID ('.' ID)* '.*'?
       ;
-    
+
     fragment
     TYPE:   QID '[]'?
         ;
@@ -60,20 +57,20 @@ class TestFilterMode < ANTLR3::Test::Functional
     fragment
     ARG :   TYPE WS ID
         ;
-    
+
     fragment
     ID  :   ('a'..'z'|'A'..'Z'|'_') ('a'..'z'|'A'..'Z'|'_'|'0'..'9')*
         ;
-    
+
     fragment
     ESC  :  '\\' ('"'|'\''|'\\')
       ;
   END
 
   example "skipping tokens that aren't important with filter mode" do
-    input = <<-END.fixed_indent( 0 )
+    input = <<-END.fixed_indent(0)
       import org.antlr.runtime.*;
-      
+
       public class Main {
         public static void main(String[] args) throws Exception {
             for (int i=0; i<args.length; i++) {
@@ -86,28 +83,24 @@ class TestFilterMode < ANTLR3::Test::Functional
         }
       }
     END
-    
-    lexer = Filter::Lexer.new( input )
+
+    lexer = Filter::Lexer.new(input)
     tokens = lexer.map { |tk| tk }
   end
-  
-
 end
 
-
 class TestFuzzy < ANTLR3::Test::Functional
-
-  inline_grammar( <<-'END' )
+  inline_grammar(<<-'END')
     lexer grammar Fuzzy;
     options {
         language = Ruby;
         filter=true;
     }
-    
+
     @members {
       include ANTLR3::Test::CaptureOutput
     }
-    
+
     IMPORT
       :  'import' WS name=QIDStar WS? ';'
       ;
@@ -116,7 +109,7 @@ class TestFuzzy < ANTLR3::Test::Functional
     RETURN
       :  'return' (options {greedy=false;}:.)* ';'
       ;
-    
+
     CLASS
       :  'class' WS name=ID WS? ('extends' WS QID WS?)?
         ('implements' WS QID WS? (',' WS? QID WS?)*)? '{'
@@ -132,14 +125,14 @@ class TestFuzzy < ANTLR3::Test::Functional
               say("found method " << $name.text)
             }
         ;
-    
+
     FIELD
         :   TYPE WS name=ID '[]'? WS? (';'|'=')
             {
               say("found var " << $name.text)
             }
         ;
-    
+
     STAT:  ('if'|'while'|'switch'|'for') WS? '(' ;
       
     CALL
@@ -148,14 +141,14 @@ class TestFuzzy < ANTLR3::Test::Functional
               say("found call " << $name.text)
             }
         ;
-    
+
     COMMENT
         :   '/*' (options {greedy=false;} : . )* '*/'
             {
               say("found comment " << self.text)
             }
         ;
-    
+
     SL_COMMENT
         :   '//' (options {greedy=false;} : . )* '\n'
             {
@@ -166,14 +159,14 @@ class TestFuzzy < ANTLR3::Test::Functional
     STRING
       :  '"' (options {greedy=false;}: ESC | .)* '"'
       ;
-    
+
     CHAR
       :  '\'' (options {greedy=false;}: ESC | .)* '\''
       ;
-    
+
     WS  :   (' '|'\t'|'\n')+
         ;
-    
+
     fragment
     QID :  ID ('.' ID)*
       ;
@@ -186,7 +179,7 @@ class TestFuzzy < ANTLR3::Test::Functional
     QIDStar
       :  ID ('.' ID)* '.*'?
       ;
-    
+
     fragment
     TYPE:   QID '[]'?
         ;
@@ -194,20 +187,20 @@ class TestFuzzy < ANTLR3::Test::Functional
     fragment
     ARG :   TYPE WS ID
         ;
-    
+
     fragment
     ID  :   ('a'..'z'|'A'..'Z'|'_') ('a'..'z'|'A'..'Z'|'_'|'0'..'9')*
         ;
-    
+
     fragment
     ESC  :  '\\' ('"'|'\''|'\\')
       ;
   END
-  
-  example "fuzzy lexing with the filter mode option" do
-    input = <<-END.fixed_indent( 0 )
+
+  example 'fuzzy lexing with the filter mode option' do
+    input = <<-END.fixed_indent(0)
       import org.antlr.runtime.*;
-      
+
       public class Main {
         public static void main(String[] args) throws Exception {
             for (int i=0; i<args.length; i++) {
@@ -220,8 +213,8 @@ class TestFuzzy < ANTLR3::Test::Functional
         }
       }
     END
-    
-    expected_output = <<-END.fixed_indent( 0 )
+
+    expected_output = <<-END.fixed_indent(0)
       found class Main
       found method main
       found var i
@@ -234,11 +227,9 @@ class TestFuzzy < ANTLR3::Test::Functional
       found call tokens.toString
       found // comment //System.out.println(tokens);
     END
-    
-    lexer = Fuzzy::Lexer.new( input )
-    lexer.each { |tk| tk }
+
+    lexer = Fuzzy::Lexer.new(input)
+    lexer.each { |tk| }
     lexer.output.should == expected_output
   end
-
-
 end

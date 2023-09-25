@@ -1,6 +1,4 @@
 #!/usr/bin/ruby
-# encoding: utf-8
-
 require 'cgi'
 require 'stringio'
 require 'delegate'

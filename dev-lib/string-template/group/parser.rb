@@ -4,411 +4,420 @@
 # from Racc grammer file "".
 #
 
-require 'racc/parser.rb'
+require 'racc/parser'
 
-#!/usr/bin/ruby
+# !/usr/bin/ruby
 # encoding: utf-8
 
-
 module StringTemplate
-class Group
+  class Group
+    class Parser < Racc::Parser
+      module_eval(<<~'...END GROUP-PARSER.Y/MODULE_EVAL...', __FILE__, __LINE__ + 1)
 
-class Parser < Racc::Parser
+        class ParseError < Racc::ParseError
+          attr_reader :file, :token, :input, :stack
+          
+          def initialize(input, token, stack)
+            super("parse error on value %s(%p) @ %s" % [token.type, token.text, token.location])
+            @input = input
+            @token = token
+            @stack = stack
+          end
+          
+          def location; @token.location; end
+          def text; @token.text; end
+          def type; @token.type; end
+          def file; location.file; end
+          def line; location.line; end
+          def column; location.column; end
+          def position; location.position; end
+          
+          def source_range(width = 2)
+            line_index = line - 1
+            start  = line_index - width
+            finish = line_index + width
+            start < 0 and start = 0
+            finish >= @input.length and finish = @input.length - 1
+            
+            digits = Math.log10(finish + 1).floor + 1
+            
+            @input[start..finish].each_with_index.map do |ln, i|
+              ln_number = start + i + 1
+              mask = ln_number == line ? "==> %<digits>#si | %s" : "    %<digits>#si | %s"
+              mask % [ln_number, ln]
+            end.join("\n")
+          end
+          
+        end
 
-module_eval(<<'...end group-parser.y/module_eval...', 'group-parser.y', 122)
+        def parse(source, file_name = '(string)')
+          @group = Group.new(file_name)
+          @lexer = Lexer.new(source, :file => file_name)
+          yyparse(self, :scan)
+          @group.tokens.replace(@lexer.tokens(false))
+          return @group
+        end
 
-class ParseError < Racc::ParseError
-  attr_reader :file, :token, :input, :stack
-  
-  def initialize(input, token, stack)
-    super("parse error on value %s(%p) @ %s" % [token.type, token.text, token.location])
-    @input = input
-    @token = token
-    @stack = stack
-  end
-  
-  def location; @token.location; end
-  def text; @token.text; end
-  def type; @token.type; end
-  def file; location.file; end
-  def line; location.line; end
-  def column; location.column; end
-  def position; location.position; end
-  
-  def source_range(width = 2)
-    line_index = line - 1
-    start  = line_index - width
-    finish = line_index + width
-    start < 0 and start = 0
-    finish >= @input.length and finish = @input.length - 1
-    
-    digits = Math.log10(finish + 1).floor + 1
-    
-    @input[start..finish].each_with_index.map do |ln, i|
-      ln_number = start + i + 1
-      mask = ln_number == line ? "==> %#{digits}i | %s" : "    %#{digits}i | %s"
-      mask % [ln_number, ln]
-    end.join("\n")
-  end
-  
-end
+        def on_error(type, token, stack)
+          error = ParseError.new(@lexer.scanner.string.split(/\r?\n/), token, stack)
+          raise(error)
+        end
 
-def parse(source, file_name = '(string)')
-  @group = Group.new(file_name)
-  @lexer = Lexer.new(source, :file => file_name)
-  yyparse(self, :scan)
-  @group.tokens.replace(@lexer.tokens(false))
-  return @group
-end
+        def parse_file(path)
+          test(?f, path = path.to_s) or
+            raise ArgumentError, "%p is not an existing file" % path
+          source = File.read(path)
+          parse(source, path)
+        end
 
-def on_error(type, token, stack)
-  error = ParseError.new(@lexer.scanner.string.split(/\r?\n/), token, stack)
-  raise(error)
-end
+        def scan
+          @lexer.each do |token|
+            if token.type == :COMMENT
+              @group.add(Comment.new(token.index))
+            else
+              yield([token.type, token])
+            end
+          end
+          yield([false, '$'])
+        end
 
-def parse_file(path)
-  test(?f, path = path.to_s) or
-    raise ArgumentError, "%p is not an existing file" % path
-  source = File.read(path)
-  parse(source, path)
-end
+        def template!
+          @member = Template.new
+        end
 
-def scan
-  @lexer.each do |token|
-    if token.type == :COMMENT
-      @group.add(Comment.new(token.index))
-    else
-      yield([token.type, token])
-    end
-  end
-  yield([false, '$'])
-end
+        def type_map!
+          @member = TypeMap.new
+        end
 
-def template!
-  @member = Template.new
-end
+        def alias!(new, old)
+          orig = @group.templates[old] or
+            raise "attempt to alias unknown template %p as %p" % [old, new]
+          @member = orig.alias! new
+        end
 
-def type_map!
-  @member = TypeMap.new
-end
+        def add!
+          @member.nil? and return nil
+          @member.span = @start..@finish
+          @group.add @member
+          @start = @finish = @member = nil
+        end
 
-def alias!(new, old)
-  orig = @group.templates[old] or
-    raise "attempt to alias unknown template %p as %p" % [old, new]
-  @member = orig.alias! new
-end
+        def string_literal(text)
+          text = text.dup
+          if text =~ /\A<</
+            text.gsub!(/\A<<\n?/, '')
+            text.gsub!(/\n?>>\Z/, '')
+          elsif text =~ /\A"/
+            text.gsub!(/\A"/, '')
+            text.gsub!(/"\Z/, '')
+            text.gsub!(/\\"/, '"')
+          end
+          return text
+        end
 
-def add!
-  @member.nil? and return nil
-  @member.span = @start..@finish
-  @group.add @member
-  @start = @finish = @member = nil
-end
+      ...END GROUP-PARSER.Y/MODULE_EVAL...
+      ##### State transition tables begin ###
 
-def string_literal(text)
-  text = text.dup
-  if text =~ /\A<</
-    text.gsub!(/\A<<\n?/, '')
-    text.gsub!(/\n?>>\Z/, '')
-  elsif text =~ /\A"/
-    text.gsub!(/\A"/, '')
-    text.gsub!(/"\Z/, '')
-    text.gsub!(/\\"/, '"')
-  end
-  return text
-end
+      racc_action_table = [
+        80, 10, 26, 44, 33, 80, 10, 71,    35, 11,
+        27,    81,    82,    78,    11,    79,    81,    82,    78,    54,
+        79,    70,    54,    36,    15,    55,    16,    50,    55,    60,
+        39,    58,    59,    64,    65,    66,    67,    60,    40,    58,
+        59,    18,    22,    23,    42,    43,    23,    45,    46,    47,
+        48,    49,    31,    56,    30,    61,    39, -17, 68, 69,
+        17,    72,    73,    13,    12, 3, 4, 84
+      ]
 
-...end group-parser.y/module_eval...
-##### State transition tables begin ###
+      racc_action_check = [
+        72, 5, 16, 34, 22, 73, 2, 52, 23, 5,
+        16,    72,    72,    72,     2,    72, 73, 73, 73, 71,
+        73,    52,    42,    24,     9,    71, 9, 42, 42, 61,
+        25,    61,    61,    48,    48,    48,    48,    45,    27,    45,
+        45,    12,    12,    12,    28,    30,    20,    36,    37,    38,
+        39,    40,    19,    44,    17,    46,    47,    15,    49,    51,
+        11,    54,    55, 4, 3, 0, 1, 75
+      ]
 
-racc_action_table = [
-    80,    10,    26,    44,    33,    80,    10,    71,    35,    11,
-    27,    81,    82,    78,    11,    79,    81,    82,    78,    54,
-    79,    70,    54,    36,    15,    55,    16,    50,    55,    60,
-    39,    58,    59,    64,    65,    66,    67,    60,    40,    58,
-    59,    18,    22,    23,    42,    43,    23,    45,    46,    47,
-    48,    49,    31,    56,    30,    61,    39,   -17,    68,    69,
-    17,    72,    73,    13,    12,     3,     4,    84 ]
+      racc_action_pointer = [
+        63,    66, 3, 61,    63, -2, nil, nil, nil, 16,
+        nil, 57, 37, nil, nil, 54, -1, 42, nil, 48,
+        40,   nil, 1, 5, 14, 27, nil, 35, 24, nil,
+        42,   nil, nil, nil, -4, nil, 37, 39, 42, 37,
+        39,   nil, 6, nil, 50, 21,    45,    53,    19,    55,
+        nil,    38, 0, nil, 56, 57,   nil,   nil,   nil,   nil,
+        nil,    13, nil, nil, nil, nil, nil, nil, nil, nil,
+        nil, 3, -3, 2, nil, 46, nil, nil, nil, nil,
+        nil,   nil,   nil,   nil,   nil
+      ]
 
-racc_action_check = [
-    72,     5,    16,    34,    22,    73,     2,    52,    23,     5,
-    16,    72,    72,    72,     2,    72,    73,    73,    73,    71,
-    73,    52,    42,    24,     9,    71,     9,    42,    42,    61,
-    25,    61,    61,    48,    48,    48,    48,    45,    27,    45,
-    45,    12,    12,    12,    28,    30,    20,    36,    37,    38,
-    39,    40,    19,    44,    17,    46,    47,    15,    49,    51,
-    11,    54,    55,     4,     3,     0,     1,    75 ]
+      racc_action_default = [
+        -51,   -51,   -51,   -51,   -51, -1, -11, -13, -14, -51,
+        -19,   -51, -51, 85, -12, -15, -34, -51, -2, -51,
+        -4,    -6, -51, -51, -51, -51, -21, -51, -51, -36,
+        -51, -3, -5, -7, -8, -9, -51, -51, -23, -25,
+        -51,   -35,   -51,   -20,   -51,   -51,   -51,   -51,   -51,   -51,
+        -37,   -51,   -51,   -41,   -51,   -51,   -10,   -16,   -31,   -32,
+        -33,   -51,   -24,   -26,   -27,   -28,   -29,   -30,   -22,   -38,
+        -39,   -51,   -50,   -50,   -18,   -51,   -42,   -43,   -45,   -46,
+        -47,   -48,   -49,   -44,   -40
+      ]
 
-racc_action_pointer = [
-    63,    66,     3,    61,    63,    -2,   nil,   nil,   nil,    16,
-   nil,    57,    37,   nil,   nil,    54,    -1,    42,   nil,    48,
-    40,   nil,     1,     5,    14,    27,   nil,    35,    24,   nil,
-    42,   nil,   nil,   nil,    -4,   nil,    37,    39,    42,    37,
-    39,   nil,     6,   nil,    50,    21,    45,    53,    19,    55,
-   nil,    38,     0,   nil,    56,    57,   nil,   nil,   nil,   nil,
-   nil,    13,   nil,   nil,   nil,   nil,   nil,   nil,   nil,   nil,
-   nil,     3,    -3,     2,   nil,    46,   nil,   nil,   nil,   nil,
-   nil,   nil,   nil,   nil,   nil ]
+      racc_goto_table = [
+        51,    53,    37,    57,    21, 6, 77, 83, 14, 24,
+        20,    19,    32,    34,    25, 29, 63, 41, 28, 74,
+        5, 52, 2, 1, 62, nil, nil, nil, nil, 75,
+        76
+      ]
 
-racc_action_default = [
-   -51,   -51,   -51,   -51,   -51,    -1,   -11,   -13,   -14,   -51,
-   -19,   -51,   -51,    85,   -12,   -15,   -34,   -51,    -2,   -51,
-    -4,    -6,   -51,   -51,   -51,   -51,   -21,   -51,   -51,   -36,
-   -51,    -3,    -5,    -7,    -8,    -9,   -51,   -51,   -23,   -25,
-   -51,   -35,   -51,   -20,   -51,   -51,   -51,   -51,   -51,   -51,
-   -37,   -51,   -51,   -41,   -51,   -51,   -10,   -16,   -31,   -32,
-   -33,   -51,   -24,   -26,   -27,   -28,   -29,   -30,   -22,   -38,
-   -39,   -51,   -50,   -50,   -18,   -51,   -42,   -43,   -45,   -46,
-   -47,   -48,   -49,   -44,   -40 ]
+      racc_goto_check = [
+        21, 23, 13, 12, 6, 8, 24, 24, 8, 14,
+        5, 4, 6,     7, 15, 16, 18, 19, 20, 12,
+        3, 22, 2, 1, 13, nil, nil, nil, nil, 21,
+        23
+      ]
 
-racc_goto_table = [
-    51,    53,    37,    57,    21,     6,    77,    83,    14,    24,
-    20,    19,    32,    34,    25,    29,    63,    41,    28,    74,
-     5,    52,     2,     1,    62,   nil,   nil,   nil,   nil,    75,
-    76 ]
+      racc_goto_pointer = [
+        nil, 23, 22, 18, -1, -2, -8, -10, 3, nil,
+        nil, nil, -42, -23, -6, -1, -1, nil, -32, -11,
+        2, -42, -21, -41, -66
+      ]
 
-racc_goto_check = [
-    21,    23,    13,    12,     6,     8,    24,    24,     8,    14,
-     5,     4,     6,     7,    15,    16,    18,    19,    20,    12,
-     3,    22,     2,     1,    13,   nil,   nil,   nil,   nil,    21,
-    23 ]
+      racc_goto_default = [
+        nil, nil, nil, nil, nil, nil, nil, nil, nil, 7,
+        8, 9, nil, nil, nil, nil, nil, 38, nil, nil,
+        nil, nil, nil, nil, nil
+      ]
 
-racc_goto_pointer = [
-   nil,    23,    22,    18,    -1,    -2,    -8,   -10,     3,   nil,
-   nil,   nil,   -42,   -23,    -6,    -1,    -1,   nil,   -32,   -11,
-     2,   -42,   -21,   -41,   -66 ]
+      racc_reduce_table = [
+        0, 0, :racc_error,
+        2, 24, :_reduce_1,
+        3, 25, :_reduce_2,
+        4, 25, :_reduce_3,
+        1, 27, :_reduce_none,
+        2, 27, :_reduce_none,
+        1, 27, :_reduce_none,
+        2, 28, :_reduce_7,
+        2, 29, :_reduce_none,
+        1, 30, :_reduce_9,
+        3, 30, :_reduce_10,
+        1, 26, :_reduce_none,
+        2, 26, :_reduce_none,
+        1, 31, :_reduce_13,
+        1, 31, :_reduce_14,
+        0, 37, :_reduce_15,
+        6, 32, :_reduce_16,
+        0, 38, :_reduce_17,
+        7, 32, :_reduce_18,
+        1, 34, :_reduce_19,
+        4, 34, :_reduce_20,
+        1, 39, :_reduce_21,
+        4, 39, :_reduce_22,
+        1, 36, :_reduce_none,
+        3, 36, :_reduce_none,
+        1, 40, :_reduce_25,
+        3, 40, :_reduce_26,
+        1, 41, :_reduce_27,
+        1, 41, :_reduce_28,
+        1, 41, :_reduce_29,
+        1, 41, :_reduce_30,
+        1, 35, :_reduce_31,
+        1, 35, :_reduce_32,
+        1, 35, :_reduce_33,
+        0, 43, :_reduce_34,
+        4, 33, :_reduce_35,
+        3, 33, :_reduce_36,
+        2, 42, :_reduce_37,
+        3, 42, :_reduce_38,
+        3, 42, :_reduce_39,
+        5, 42, :_reduce_40,
+        1, 45, :_reduce_none,
+        3, 45, :_reduce_none,
+        3, 46, :_reduce_43,
+        3, 44, :_reduce_44,
+        1, 47, :_reduce_45,
+        1, 47, :_reduce_46,
+        1, 47, :_reduce_none,
+        1, 47, :_reduce_48,
+        1, 47, :_reduce_49,
+        0, 47, :_reduce_none
+      ]
 
-racc_goto_default = [
-   nil,   nil,   nil,   nil,   nil,   nil,   nil,   nil,   nil,     7,
-     8,     9,   nil,   nil,   nil,   nil,   nil,    38,   nil,   nil,
-   nil,   nil,   nil,   nil,   nil ]
+      racc_reduce_n = 51
 
-racc_reduce_table = [
-  0, 0, :racc_error,
-  2, 24, :_reduce_1,
-  3, 25, :_reduce_2,
-  4, 25, :_reduce_3,
-  1, 27, :_reduce_none,
-  2, 27, :_reduce_none,
-  1, 27, :_reduce_none,
-  2, 28, :_reduce_7,
-  2, 29, :_reduce_none,
-  1, 30, :_reduce_9,
-  3, 30, :_reduce_10,
-  1, 26, :_reduce_none,
-  2, 26, :_reduce_none,
-  1, 31, :_reduce_13,
-  1, 31, :_reduce_14,
-  0, 37, :_reduce_15,
-  6, 32, :_reduce_16,
-  0, 38, :_reduce_17,
-  7, 32, :_reduce_18,
-  1, 34, :_reduce_19,
-  4, 34, :_reduce_20,
-  1, 39, :_reduce_21,
-  4, 39, :_reduce_22,
-  1, 36, :_reduce_none,
-  3, 36, :_reduce_none,
-  1, 40, :_reduce_25,
-  3, 40, :_reduce_26,
-  1, 41, :_reduce_27,
-  1, 41, :_reduce_28,
-  1, 41, :_reduce_29,
-  1, 41, :_reduce_30,
-  1, 35, :_reduce_31,
-  1, 35, :_reduce_32,
-  1, 35, :_reduce_33,
-  0, 43, :_reduce_34,
-  4, 33, :_reduce_35,
-  3, 33, :_reduce_36,
-  2, 42, :_reduce_37,
-  3, 42, :_reduce_38,
-  3, 42, :_reduce_39,
-  5, 42, :_reduce_40,
-  1, 45, :_reduce_none,
-  3, 45, :_reduce_none,
-  3, 46, :_reduce_43,
-  3, 44, :_reduce_44,
-  1, 47, :_reduce_45,
-  1, 47, :_reduce_46,
-  1, 47, :_reduce_none,
-  1, 47, :_reduce_48,
-  1, 47, :_reduce_49,
-  0, 47, :_reduce_none ]
+      racc_shift_n = 85
 
-racc_reduce_n = 51
+      racc_token_table = {
+        false => 0,
+        :error => 1,
+        :GROUP => 2,
+        :ID => 3,
+        :SEMICOLON => 4,
+        :COLON => 5,
+        :IMPLEMENTS => 6,
+        :COMMA => 7,
+        :OPEN_P => 8,
+        :CLOSE_P => 9,
+        :DEFINE => 10,
+        :AT => 11,
+        :DOT => 12,
+        :ASSIGN => 13,
+        :TRUE => 14,
+        :FALSE => 15,
+        :STRING => 16,
+        :ANONYMOUS_TEMPLATE => 17,
+        :BIG_STRING => 18,
+        :BIG_STRING_TRIM => 19,
+        :OPEN_B => 20,
+        :CLOSE_B => 21,
+        :DEFAULT => 22
+      }
 
-racc_shift_n = 85
+      racc_nt_base = 23
 
-racc_token_table = {
-  false => 0,
-  :error => 1,
-  :GROUP => 2,
-  :ID => 3,
-  :SEMICOLON => 4,
-  :COLON => 5,
-  :IMPLEMENTS => 6,
-  :COMMA => 7,
-  :OPEN_P => 8,
-  :CLOSE_P => 9,
-  :DEFINE => 10,
-  :AT => 11,
-  :DOT => 12,
-  :ASSIGN => 13,
-  :TRUE => 14,
-  :FALSE => 15,
-  :STRING => 16,
-  :ANONYMOUS_TEMPLATE => 17,
-  :BIG_STRING => 18,
-  :BIG_STRING_TRIM => 19,
-  :OPEN_B => 20,
-  :CLOSE_B => 21,
-  :DEFAULT => 22 }
+      racc_use_result_var = false
 
-racc_nt_base = 23
+      Racc_arg = [
+        racc_action_table,
+        racc_action_check,
+        racc_action_default,
+        racc_action_pointer,
+        racc_goto_table,
+        racc_goto_check,
+        racc_goto_default,
+        racc_goto_pointer,
+        racc_nt_base,
+        racc_reduce_table,
+        racc_token_table,
+        racc_shift_n,
+        racc_reduce_n,
+        racc_use_result_var
+      ]
 
-racc_use_result_var = false
+      Racc_token_to_s_table = [
+        '$end',
+        'error',
+        'GROUP',
+        'ID',
+        'SEMICOLON',
+        'COLON',
+        'IMPLEMENTS',
+        'COMMA',
+        'OPEN_P',
+        'CLOSE_P',
+        'DEFINE',
+        'AT',
+        'DOT',
+        'ASSIGN',
+        'TRUE',
+        'FALSE',
+        'STRING',
+        'ANONYMOUS_TEMPLATE',
+        'BIG_STRING',
+        'BIG_STRING_TRIM',
+        'OPEN_B',
+        'CLOSE_B',
+        'DEFAULT',
+        '$start',
+        'group',
+        'group_declaration',
+        'members',
+        'group_properties',
+        'supergroup',
+        'implements',
+        'interface_list',
+        'member',
+        'template',
+        'non_template_member',
+        'name',
+        'template_text',
+        'parameter_list',
+        '@1',
+        '@2',
+        'alias_name',
+        'parameter',
+        'parameter_value',
+        'map',
+        '@3',
+        'default_pair',
+        'key_pairs',
+        'key_pair',
+        'key_value'
+      ]
 
-Racc_arg = [
-  racc_action_table,
-  racc_action_check,
-  racc_action_default,
-  racc_action_pointer,
-  racc_goto_table,
-  racc_goto_check,
-  racc_goto_default,
-  racc_goto_pointer,
-  racc_nt_base,
-  racc_reduce_table,
-  racc_token_table,
-  racc_shift_n,
-  racc_reduce_n,
-  racc_use_result_var ]
+      Racc_debug_parser = false
 
-Racc_token_to_s_table = [
-  "$end",
-  "error",
-  "GROUP",
-  "ID",
-  "SEMICOLON",
-  "COLON",
-  "IMPLEMENTS",
-  "COMMA",
-  "OPEN_P",
-  "CLOSE_P",
-  "DEFINE",
-  "AT",
-  "DOT",
-  "ASSIGN",
-  "TRUE",
-  "FALSE",
-  "STRING",
-  "ANONYMOUS_TEMPLATE",
-  "BIG_STRING",
-  "BIG_STRING_TRIM",
-  "OPEN_B",
-  "CLOSE_B",
-  "DEFAULT",
-  "$start",
-  "group",
-  "group_declaration",
-  "members",
-  "group_properties",
-  "supergroup",
-  "implements",
-  "interface_list",
-  "member",
-  "template",
-  "non_template_member",
-  "name",
-  "template_text",
-  "parameter_list",
-  "@1",
-  "@2",
-  "alias_name",
-  "parameter",
-  "parameter_value",
-  "map",
-  "@3",
-  "default_pair",
-  "key_pairs",
-  "key_pair",
-  "key_value" ]
+      ##### State transition tables end #####
 
-Racc_debug_parser = false
+      # reduce 0 omitted
 
-##### State transition tables end #####
-
-# reduce 0 omitted
-
-module_eval(<<'.,.,', 'group-parser.y', 6)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_1(val, _values)
      @group 
   end
 .,.,
 
-module_eval(<<'.,.,', 'group-parser.y', 8)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_2(val, _values)
      @group.name = val[1].text 
   end
 .,.,
 
-module_eval(<<'.,.,', 'group-parser.y', 9)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_3(val, _values)
      @group.name = val[1].text 
   end
 .,.,
 
-# reduce 4 omitted
+      # reduce 4 omitted
 
-# reduce 5 omitted
+      # reduce 5 omitted
 
-# reduce 6 omitted
+      # reduce 6 omitted
 
-module_eval(<<'.,.,', 'group-parser.y', 15)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_7(val, _values)
      @group.supergroup = val[1].text 
   end
 .,.,
 
-# reduce 8 omitted
+      # reduce 8 omitted
 
-module_eval(<<'.,.,', 'group-parser.y', 19)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_9(val, _values)
      @group.interfaces << val[0].text 
   end
 .,.,
 
-module_eval(<<'.,.,', 'group-parser.y', 21)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_10(val, _values)
                               @group.interfaces << val[2].text
                         
   end
 .,.,
 
-# reduce 11 omitted
+      # reduce 11 omitted
 
-# reduce 12 omitted
+      # reduce 12 omitted
 
-module_eval(<<'.,.,', 'group-parser.y', 27)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_13(val, _values)
      add! 
   end
 .,.,
 
-module_eval(<<'.,.,', 'group-parser.y', 28)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_14(val, _values)
      add! 
   end
 .,.,
 
-module_eval(<<'.,.,', 'group-parser.y', 30)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_15(val, _values)
      template! 
   end
 .,.,
 
-module_eval(<<'.,.,', 'group-parser.y', 32)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_16(val, _values)
                               @member.name       = val[0]
                           val[6]
@@ -416,13 +425,13 @@ module_eval(<<'.,.,', 'group-parser.y', 32)
   end
 .,.,
 
-module_eval(<<'.,.,', 'group-parser.y', 35)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_17(val, _values)
      template! 
   end
 .,.,
 
-module_eval(<<'.,.,', 'group-parser.y', 37)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_18(val, _values)
                               @member.name       = val[0]
                           val[6]
@@ -430,7 +439,7 @@ module_eval(<<'.,.,', 'group-parser.y', 37)
   end
 .,.,
 
-module_eval(<<'.,.,', 'group-parser.y', 42)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_19(val, _values)
                               @start = val[0].index
                           val[0].text
@@ -438,7 +447,7 @@ module_eval(<<'.,.,', 'group-parser.y', 42)
   end
 .,.,
 
-module_eval(<<'.,.,', 'group-parser.y', 46)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_20(val, _values)
                               @start = val[0].index
                           val[0,4].map { |tk| tk.text }.join('')
@@ -446,7 +455,7 @@ module_eval(<<'.,.,', 'group-parser.y', 46)
   end
 .,.,
 
-module_eval(<<'.,.,', 'group-parser.y', 51)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_21(val, _values)
                               @finish = val[0].index
                           val[0].text
@@ -454,7 +463,7 @@ module_eval(<<'.,.,', 'group-parser.y', 51)
   end
 .,.,
 
-module_eval(<<'.,.,', 'group-parser.y', 55)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_22(val, _values)
                               @finish = val[3].index
                           val[0,4].map { |tk| tk.text }.join('')
@@ -462,47 +471,47 @@ module_eval(<<'.,.,', 'group-parser.y', 55)
   end
 .,.,
 
-# reduce 23 omitted
+      # reduce 23 omitted
 
-# reduce 24 omitted
+      # reduce 24 omitted
 
-module_eval(<<'.,.,', 'group-parser.y', 62)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_25(val, _values)
      @member.parameter!(val[0].text) 
   end
 .,.,
 
-module_eval(<<'.,.,', 'group-parser.y', 64)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_26(val, _values)
      @member.parameter!(val[ 0 ].text, val[ 2 ]) 
   end
 .,.,
 
-module_eval(<<'.,.,', 'group-parser.y', 66)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_27(val, _values)
      true 
   end
 .,.,
 
-module_eval(<<'.,.,', 'group-parser.y', 67)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_28(val, _values)
      false 
   end
 .,.,
 
-module_eval(<<'.,.,', 'group-parser.y', 68)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_29(val, _values)
      string_literal( val[ 0 ].text ) 
   end
 .,.,
 
-module_eval(<<'.,.,', 'group-parser.y', 69)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_30(val, _values)
      string_literal( val[ 0 ].text ) 
   end
 .,.,
 
-module_eval(<<'.,.,', 'group-parser.y', 72)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_31(val, _values)
                               @finish = val[0].index
                           val[0]
@@ -510,7 +519,7 @@ module_eval(<<'.,.,', 'group-parser.y', 72)
   end
 .,.,
 
-module_eval(<<'.,.,', 'group-parser.y', 76)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_32(val, _values)
                               @finish = val[0].index
                           val[0]
@@ -518,7 +527,7 @@ module_eval(<<'.,.,', 'group-parser.y', 76)
   end
 .,.,
 
-module_eval(<<'.,.,', 'group-parser.y', 80)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_33(val, _values)
                               @finish = val[0].index
                           val[0].text
@@ -526,100 +535,98 @@ module_eval(<<'.,.,', 'group-parser.y', 80)
   end
 .,.,
 
-module_eval(<<'.,.,', 'group-parser.y', 84)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_34(val, _values)
      type_map! 
   end
 .,.,
 
-module_eval(<<'.,.,', 'group-parser.y', 85)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_35(val, _values)
                               @member.name = val[0]
                         
   end
 .,.,
 
-module_eval(<<'.,.,', 'group-parser.y', 88)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_36(val, _values)
                               alias!(val[0], val[2])
                         
   end
 .,.,
 
-module_eval(<<'.,.,', 'group-parser.y', 91)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_37(val, _values)
      @finish = val[1].index 
   end
 .,.,
 
-module_eval(<<'.,.,', 'group-parser.y', 92)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_38(val, _values)
      @finish = val[2].index 
   end
 .,.,
 
-module_eval(<<'.,.,', 'group-parser.y', 93)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_39(val, _values)
      @finish = val[2].index 
   end
 .,.,
 
-module_eval(<<'.,.,', 'group-parser.y', 94)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_40(val, _values)
      @finish = val[4].index 
   end
 .,.,
 
-# reduce 41 omitted
+      # reduce 41 omitted
 
-# reduce 42 omitted
+      # reduce 42 omitted
 
-module_eval(<<'.,.,', 'group-parser.y', 100)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_43(val, _values)
                               @member.pair! string_literal(val[0]), val[2]
                         
   end
 .,.,
 
-module_eval(<<'.,.,', 'group-parser.y', 103)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_44(val, _values)
      @member.default = val[2] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'group-parser.y', 105)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_45(val, _values)
      string_literal val[0] 
   end
 .,.,
 
-module_eval(<<'.,.,', 'group-parser.y', 106)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_46(val, _values)
      string_literal val[0] 
   end
 .,.,
 
-# reduce 47 omitted
+      # reduce 47 omitted
 
-module_eval(<<'.,.,', 'group-parser.y', 108)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_48(val, _values)
      true 
   end
 .,.,
 
-module_eval(<<'.,.,', 'group-parser.y', 109)
+      module_eval(<<'.,.,', __FILE__, __LINE__ + 1)
   def _reduce_49(val, _values)
      false 
   end
 .,.,
 
-# reduce 50 omitted
+      # reduce 50 omitted
 
-def _reduce_none(val, _values)
-  val[0]
-end
-
-end   # class Parser
-
-end
+      def _reduce_none(val, _values)
+        val[0]
+      end
+    end   # class Parser
+  end
 end

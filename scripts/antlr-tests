@@ -1,166 +1,164 @@
 #!/usr/bin/env ruby
-# encoding: utf-8
-
-__DIR__ = File.dirname( __FILE__ )
-load File.join( __DIR__, 'script-helper.rb' )
+__DIR__ = File.dirname(__FILE__)
+load File.join(__DIR__, 'script-helper.rb')
 
 require 'main'
 require 'enhanced-test/session'
 
 Main do
   option :save, 's' do
-    description( "save the test results in the log directory" )
-    arity( -1 )
+    description('save the test results in the log directory')
+    arity(-1)
   end
-  
-  option( :ruby ) do
-    description( "the name (or path) of a ruby interpretter with which the tests will be run" )
+
+  option(:ruby) do
+    description('the name (or path) of a ruby interpretter with which the tests will be run')
     argument_required
-    cast do | v |
-      if test( ?x, v ) then File.expand_path( v )
-      elsif $project.find_program( v ) then v
+    cast do |v|
+      if test('x', v) then File.expand_path(v)
+      elsif $project.find_program(v) then v
       else
-        $stderr.puts( <<-END.here_flow! % v )
+        warn(<<-END.here_flow! % v)
         | `%s' does not appear to be a path to an executable program
         | or a command found on PATH
         END
-        exit( 1 )
+        exit(1)
       end
     end
   end
-  
+
   def run_tests
-    session do | s |
-      yield( s )
-      exit_status( s.run_tests ? 0 : 1 )
-      s.save if params[ :save ].given?
+    session do |s|
+      yield(s)
+      exit_status(s.run_tests ? 0 : 1)
+      s.save if params[:save].given?
     end
   end
-  
+
   def session
-    @session ||= ANTLR3::Test::Session.new( session_options )
-    block_given? ? yield( @session ) : @session
+    @session ||= ANTLR3::Test::Session.new(session_options)
+    block_given? ? yield(@session) : @session
   end
-  
+
   def session_options
-    { :data_directory => $project.test.results,
-      :output => stdout,
-      :load_path => [ $project.lib ],
-      :functional => test_options,
-      :unit => test_options,
-      :profile => { :require => 'isolate/now' } }
+    { data_directory: $project.test.results,
+      output: stdout,
+      load_path: [$project.lib],
+      functional: test_options,
+      unit: test_options,
+      profile: { require: 'isolate/now' } }
   end
-  
+
   def test_options
     options = {}
-    params[ :ruby ].given? and
-      options[ :ruby ] = params[ :ruby ].value
-    options.update( 
-      :load_path => [ $project.dev_lib ],
-      :require => $project.path( 'config/antlr3.rb' ),
-      :arguments => [ 
-        '--require', $project.dev_lib( 'enhanced-test.rb' ),
-        '--format', "ANTLRFormatter",
-        '--runner', "ANTLRRunner",
+    params[:ruby].given? and
+      options[:ruby] = params[:ruby].value
+    options.update(
+      load_path: [$project.dev_lib],
+      require: $project.path('config/antlr3.rb'),
+      arguments: [
+        '--require', $project.dev_lib('enhanced-test.rb'),
+        '--format', 'ANTLRFormatter',
+        '--runner', 'ANTLRRunner',
         '--backtrace'
       ]
     )
   end
-  
-  def self.test_mode( test_type, &block )
-    mode( test_type ) do
-      argument( :tests ) do
-        description( <<-END.here_flow! )
+
+  def self.test_mode(test_type, &block)
+    mode(test_type) do
+      argument(:tests) do
+        description(<<-END.here_flow!)
         | any combination of category names, test names, paths to test files
         | or `all'
         END
-        default( 'all' )
-        arity( -1 )
+        default('all')
+        arity(-1)
       end
-      
+
       run do
-        run_tests { | s | s.send( "add_#{ test_type }", test_files ) }
+        run_tests { |s| s.send("add_#{test_type}", test_files) }
       end
-      
+
       def test_files
         files = []
-        for arg in params[ :tests ].values
+        for arg in params[:tests].values
           if arg == 'all'
             files += all
-          elsif File.file?( arg )
+          elsif File.file?(arg)
             files << arg
-          elsif File.directory?( arg )
-            files += Dir.children( arg ).select { | f | File.file?( f ) }
-          elsif matches = match_tests?( arg )
+          elsif File.directory?(arg)
+            files += Dir.children(arg).select { |f| File.file?(f) }
+          elsif matches = match_tests?(arg)
             files += matches
           else
-            warn( "can't associate argument %p with any test files -- ignoring" % arg )
+            warn("can't associate argument %p with any test files -- ignoring" % arg)
           end
         end
-        return( files.uniq )
+        files.uniq
       end
-      
-      def match_tests?( a )
-        ( ts = match_tests( a ) and ! ts.empty? ) ? ts : false
+
+      def match_tests?(a)
+        (ts = match_tests(a) and !ts.empty?) ? ts : false
       end
-      
+
       block.call
     end
   end
-  
+
   mixin :all_types do
-    argument( :types ) do
-      description( <<-'END'.here_indent! )
+    argument(:types) do
+      description(<<-'END'.here_indent!)
       | `all', `functional', `unit', or `benchmark'
       END
-      
-      default( 'all' )
-      arity( -1 )
+
+      default('all')
+      arity(-1)
     end
-    
-    def add_tests( s )
-      include_types = [ false, false, false, false ]
-      for keyword in params[ :types ].values
+
+    def add_tests(s)
+      include_types = [false, false, false, false]
+      for keyword in params[:types].values
         case keyword
         when 'all' then include_types.map! { true }
-        when 'performance' then include_types[ 2 ] = include_types[ 3 ] = true
-        when 'unit' then include_types[ 0 ] = true
-        when 'functional' then include_types[ 1 ] = true
-        when 'benchmark'  then include_types[ 2 ] = true
-        when 'profile'    then include_types[ 3 ] = true
+        when 'performance' then include_types[2] = include_types[3] = true
+        when 'unit' then include_types[0] = true
+        when 'functional' then include_types[1] = true
+        when 'benchmark'  then include_types[2] = true
+        when 'profile'    then include_types[3] = true
         end
       end
-      include_types[ 0 ] and s.add_unit( $project.test.unit!( '*.rb' ) )
-      include_types[ 1 ] and s.add_functional( $project.test.functional!( '*','*.rb' ) )
-      include_types[ 2 ] and s.add_benchmark( $project.test.performance!( '*.yaml' ) )
-      include_types[ 3 ] and s.add_profile( $project.test.performance!( '*.yaml' ) )
+      include_types[0] and s.add_unit($project.test.unit!('*.rb'))
+      include_types[1] and s.add_functional($project.test.functional!('*', '*.rb'))
+      include_types[2] and s.add_benchmark($project.test.performance!('*.yaml'))
+      include_types[3] and s.add_profile($project.test.performance!('*.yaml'))
     end
   end
-  
+
   test_mode :unit do
     def all
-      $project.test.unit!( 'test-*.rb' )
+      $project.test.unit!('test-*.rb')
     end
-    
-    def match_tests( arg )
-      $project.test.unit!( "*#{ arg }*.rb" )
+
+    def match_tests(arg)
+      $project.test.unit!("*#{arg}*.rb")
     end
   end
-  
+
   test_mode :functional do
     def all
-      $project.test.functional!( '*','*.rb' )
+      $project.test.functional!('*', '*.rb')
     end
-    
-    def match_tests( arg )
-      $project.test.functional!( arg + '*', '*.rb' ) +
-      $project.test.functional!( '*', arg + '*.rb' )
+
+    def match_tests(arg)
+      $project.test.functional!(arg + '*', '*.rb') +
+        $project.test.functional!('*', arg + '*.rb')
     end
   end
-  
-  for type in %w( benchmark profile )
-    eval( <<-END, binding, __FILE__, __LINE__ + 1 )
-      test_mode :#{ type } do
+
+  for type in %w[benchmark profile]
+    eval(<<-END, binding, __FILE__, __LINE__ + 1)
+      test_mode :#{type} do
         def all() $project.test.performance!( '*.yaml' ) end
         def match_tests( arg )
           $project.test.performance!( "\#{arg}*.yaml" )
@@ -168,22 +166,22 @@ Main do
       end
     END
   end
-  
+
   mode :clean do
     mixin :all_types
-    
+
     def run
-      session do | s |
-        add_tests( s )
-        s.clean( :verbose => true, :dry_run => false )
+      session do |s|
+        add_tests(s)
+        s.clean(verbose: true, dry_run: false)
       end
     end
   end
-  
+
   mode :run do
     mixin :all_types
     run do
-      run_tests { | s | add_tests( s ) }
+      run_tests { |s| add_tests(s) }
     end
   end
   run { help! }

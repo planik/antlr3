@@ -1,18 +1,14 @@
 #!/usr/bin/ruby
-# encoding: utf-8
+file('GroupFile.g')
 
-file( 'GroupFile.g' )
-
-file( 'group-file-parser.rb' => 'GroupFile.g' ) do
-  
+file('group-file-parser.rb' => 'GroupFile.g') do
   require 'antlr3/task'
-  tasks = ANTLR3::CompileTask.define( 'GroupFile.g' )
+  tasks = ANTLR3::CompileTask.define('GroupFile.g')
   tasks.compile_task.invoke
-  
-  mv( 'GroupFileParser.rb', 'group-file-parser.rb' )
-  mv( 'GroupFileLexer.rb', 'group-file-lexer.rb' )
-  rm( 'GroupFile.tokens' )
-  
+
+  mv('GroupFileParser.rb', 'group-file-parser.rb')
+  mv('GroupFileLexer.rb', 'group-file-lexer.rb')
+  rm('GroupFile.tokens')
 end
 
-task( :default => 'group-file-parser.rb' )
+task(default: 'group-file-parser.rb')

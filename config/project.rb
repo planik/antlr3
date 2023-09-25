@@ -1,36 +1,33 @@
 #!/usr/bin/ruby
-# encoding: utf-8
-
-=begin LICENSE
-
-[The "BSD licence"]
-Copyright (c) 2010 Kyle Yetter
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions
-are met:
-
- 1. Redistributions of source code must retain the above copyright
-    notice, this list of conditions and the following disclaimer.
- 2. Redistributions in binary form must reproduce the above copyright
-    notice, this list of conditions and the following disclaimer in the
-    documentation and/or other materials provided with the distribution.
- 3. The name of the author may not be used to endorse or promote products
-    derived from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
-IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
-OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
-INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
-NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
-THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-=end
+# LICENSE
+#
+# [The "BSD licence"]
+# Copyright (c) 2010 Kyle Yetter
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+#  1. Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer.
+#  2. Redistributions in binary form must reproduce the above copyright
+#     notice, this list of conditions and the following disclaimer in the
+#     documentation and/or other materials provided with the distribution.
+#  3. The name of the author may not be used to endorse or promote products
+#     derived from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+# IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+# OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+# IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+# NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+# THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
 
 #
 # a mildly messy collection of class definitions quickly thrown together
@@ -38,77 +35,76 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # settings of your choosing and functions like a cascading
 # open struct that can be customized with singleton methods
 # for various purposes in a project
-# 
+#
 
 require 'yaml'
 
-
 class << ENV
-  
   # fetch an environmental variable value and
   # parse it according to type:
   #   - array    - numeric
   #   - string   - boolean
   def read(var, as_type = String, *arguments)
     value = fetch(var.to_s) { return(nil) }
-    return(parse(value, as_type, *arguments))
+    parse(value, as_type, *arguments)
   end
-  
-  def temporary( value_map )
+
+  def temporary(value_map)
     current = {}
     for name, value in value_map
-      name, value = name.to_s, value.to_s
-      current[ name ] = fetch( name, :none )
-      self[ name ] = value
+      name = name.to_s
+      value = value.to_s
+      current[name] = fetch(name, :none)
+      self[name] = value
     end
     yield
   ensure
     for name, value in current
-      if value == :none then delete( name )
-      else self[ name ] = value
+      if value == :none then delete(name)
+      else
+        self[name] = value
       end
     end
   end
-  
-  def add_onto( var, *values )
-    values = [values, ENV[ var.to_s ]].flatten!
+
+  def add_onto(var, *values)
+    values = [values, ENV[var.to_s]].flatten!
     values.compact!
-    ENV[ var.to_s ] = values.join( File::PATH_SEPARATOR )
+    ENV[var.to_s] = values.join(File::PATH_SEPARATOR)
   end
-  
-  def push_onto( var, *values )
-    values = [ENV[ var.to_s ], values].flatten!
+
+  def push_onto(var, *values)
+    values = [ENV[var.to_s], values].flatten!
     values.compact!
-    ENV[ var.to_s ] = values.join( File::PATH_SEPARATOR )
+    ENV[var.to_s] = values.join(File::PATH_SEPARATOR)
   end
-  
-private
-  
+
+  private
+
   def parse(value, type, *args)
     result = case type.to_s.downcase
-    when 'array', 'list' then parse_array(value, *args)
-    when 'string' then parse_string(value, *args)
-    when 'float' then parse_float(value, *args)
-    when 'boolean' then parse_boolean(value, *args)
-    when 'number', 'numeric', 'int'
-      value =~ /\./ ? parse_float(value, *args) : parse_int(value, *args)
-    else
-      warn(
-        ("ENV#parse (%s:%i): do not know how to parse to %p " \
-        "-- returning original string value") % [__FILE__, __LINE__, type]
-      )
-      value
-    end
+             when 'array', 'list' then parse_array(value, *args)
+             when 'string' then parse_string(value, *args)
+             when 'float' then parse_float(value, *args)
+             when 'boolean' then parse_boolean(value, *args)
+             when 'number', 'numeric', 'int'
+               value =~ /\./ ? parse_float(value, *args) : parse_int(value, *args)
+             else
+               warn(
+                 format('ENV#parse (%s:%i): do not know how to parse to %p ' \
+                 '-- returning original string value', __FILE__, __LINE__, type)
+               )
+               value
+             end
     value.tainted? and result.taint
-    return result
+    result
   end
 
   def parse_array(value, separator = File::PATH_SEPARATOR, sub_type = String, *args)
-    out = value.split(separator).map! do |item|
+    value.split(separator).map! do |item|
       value.tainted? and item.taint
       parse(item, sub_type, *args)
     end
-    return out
   end
 
   def parse_int(value, base = 10)
@@ -122,231 +118,229 @@ private
   def parse_string(value)
     value.nil? || value.empty? and return(nil)
     value =~ /^(false|0+|no|off|nil)$/i and return(nil)
-    return(value)
+    value
   end
 
   def parse_boolean(value)
     value.nil? || value.empty? and return(nil)
     value =~ /^(false|0+|no|f)$/i ? false : true
   end
-
 end
 
 class PropertyGroup < ::Hash
   NOTHING = Object.new
   attr_reader :project
-  
+
   alias get []
   alias put []=
   private :put, :get
-  
-  def []=( name, value )
-    super( name.to_s, value )
+
+  def []=(name, value)
+    super(name.to_s, value)
   end
-  
-  def []( name )
+
+  def [](name)
     name = name.to_s
-    if has_key?( name ) then super( name )
-    elsif @path_map then @path_map[ name ]
+    if has_key?(name) then super(name)
+    elsif @path_map then @path_map[name]
     end
   end
-  
-  def merge( h )
-    super( normalize( h ) )
+
+  def merge(h)
+    super(normalize(h))
   end
-  
-  def initialize( project, values = {} )
+
+  def initialize(project, values = {})
     super()
     @project = project
-    configure( values )
-    block_given? and yield( self )
+    configure(values)
+    block_given? and yield(self)
   end
-  
+
   alias properties keys
-  
-  def configure( settings )
+
+  def configure(settings)
     for key, value in settings
-      if Hash === value and value.key?( ".type" )
-        define_special_member( key.to_s, value.delete( ".type" ), value )
+      if value.is_a?(Hash) and value.key?('.type')
+        define_special_member(key.to_s, value.delete('.type'), value)
       elsif value =~ /^path:(.*)$/
-        define_special_member( key.to_s, "path", $1 )
+        define_special_member(key.to_s, 'path', ::Regexp.last_match(1))
       else
-        define_member( key, value )
+        define_member(key, value)
       end
     end
-    return( self )
+    self
   end
-  
-  def method_missing( method, *args, &block)
+
+  def method_missing(method, *args, &block)
     case name = method.to_s
     when /^(\w+)=$/
-      define_member( $1, *args )
+      define_member(::Regexp.last_match(1), *args)
     when /^(\w+)$/
-      args.empty? or return( super )
+      args.empty? or return(super)
       begin
-        fetch( name ) { super }
+        fetch(name) { super }
       rescue NoMethodError => e
-        e.message.gsub!( /undefined method/, 'undefined method or property' )
-        raise( e )
+        e.message.gsub!(/undefined method/, 'undefined method or property')
+        raise(e)
       end
     else
       super
     end
   end
-  
-  
-  def define_member( name, value )
+
+  def define_member(name, value)
     name = name.to_s
     name_str = name.inspect
-    put( name, value )
-    customize( <<-END, __FILE__, __LINE__ + 1 )
-      def #{ name }( value = PropertyGroup::NOTHING )
-        value.equal?( PropertyGroup::NOTHING ) or put( #{ name_str }, value )
-        return get( #{ name_str } )
+    put(name, value)
+    customize(<<-END, __FILE__, __LINE__ + 1)
+      def #{name}( value = PropertyGroup::NOTHING )
+        value.equal?( PropertyGroup::NOTHING ) or put( #{name_str}, value )
+        return get( #{name_str} )
       end
-      
-      def #{ name }=( value )
-        put( #{ name_str }, value )
+
+      def #{name}=( value )
+        put( #{name_str}, value )
       end
     END
-    return value
+    value
   end
-  
+
   def metaclass
     class << self; self; end
   end
-  
-  def customize( *args, &block )
-    metaclass.class_eval( *args, &block )
+
+  def customize(*args, &block)
+    metaclass.class_eval(*args, &block)
   end
-  
-  
-private
+
+  private
+
   def path_map
     @path_map ||= begin
-      map = PropertyGroup::PathMap.define( @project, {} )
-      extend( map )
+      map = PropertyGroup::PathMap.define(@project, {})
+      extend(map)
       map
     end
   end
-  
-  def normalize( hash )
+
+  def normalize(hash)
     stringified = {}
     for key, value in hash
-      stringified[ key.to_s ] = value
+      stringified[key.to_s] = value
     end
-    return( stringified )
+    stringified
   end
 end
 
 module PropertyGroup::Expansion
   # recusively expand a project setting
   # note: this may cause an infinite loop if there's a dependency loop between variables
-  def expand( value )
+  def expand(value)
     case value
-    when Array then expand_array( value )
+    when Array then expand_array(value)
     when PropertyGroup then value.expand!
-    when Hash then expand_hash( value )
-    when String then expand_string( value )
-    when PropertyGroup::PathMap then expand_path_map( value )
-    when PropertyGroup::PathList then expand_path_list( value )
-    when Regexp then expand_regex( value )
+    when Hash then expand_hash(value)
+    when String then expand_string(value)
+    when PropertyGroup::PathMap then expand_path_map(value)
+    when PropertyGroup::PathList then expand_path_list(value)
+    when Regexp then expand_regex(value)
     else value
     end
   end
-  
-  def expand!
-    expand_hash( self )
-    expand( path_map )
-    return( self )
-  end
-  
-private
 
-  def expand_hash( hash )
+  def expand!
+    expand_hash(self)
+    expand(path_map)
+    self
+  end
+
+  private
+
+  def expand_hash(hash)
     for key, value in hash
-      hash[ key ] = expand( value )
+      hash[key] = expand(value)
     end
-    return hash
+    hash
   end
-  
-  def expand_array( array )
-    array.map! { |v| expand( v ) }
+
+  def expand_array(array)
+    array.map! { |v| expand(v) }
   end
-  
-  def expand_string( value )
-    value.gsub! %r| \$ \( ([\w\.]+) \) |x do
-      variable_value = $1.split( '.' ).
-        inject( @project )  { |rec, prop| rec[ prop ] }
-      expand( variable_value )
+
+  def expand_string(value)
+    value.gsub! %r{ \$ \( ([\w.]+) \) }x do
+      variable_value = ::Regexp.last_match(1).split('.')
+                               .inject(@project) { |rec, prop| rec[prop] }
+      expand(variable_value)
     end
-    return value
+    value
   end
-  
-  def expand_path_map( value )
+
+  def expand_path_map(value)
     paths = value::PATHS
     for name, path in paths
-      paths[ name ] = expand( path )
+      paths[name] = expand(path)
     end
-    return value
+    value
   end
-  
-  def expand_path_list( list )
+
+  def expand_path_list(list)
     for var in list.instance_variables
-      value = list.instance_variable_get( var )
-      list.instance_variable_set( var, expand( value ) )
+      value = list.instance_variable_get(var)
+      list.instance_variable_set(var, expand(value))
     end
-    return list
+    list
   end
-  
-  def expand_regex( value )
-    pattern = /\\ \$ \\ \( ([\w\.]+) \\ \)/x
+
+  def expand_regex(value)
+    pattern = /\\ \$ \\ \( ([\w.]+) \\ \)/x
     regex_source = value.source
-    regex_source.gsub!( pattern ) do
-      variable_value = $1.split('.').
-        inject( @project ) { |rec, prop| rec[ prop ] }
-      expand( variable_value )
+    regex_source.gsub!(pattern) do
+      variable_value = ::Regexp.last_match(1).split('.')
+                               .inject(@project) { |rec, prop| rec[prop] }
+      expand(variable_value)
     end
-    Regexp.new( regex_source, value.options )
+    Regexp.new(regex_source, value.options)
   end
 end
 
 module PropertyGroup::SpecialTypes
-  def create_property_group( props )
-    PropertyGroup.new( @project, props )
+  def create_property_group(props)
+    PropertyGroup.new(@project, props)
   end
-  
-  def create_path_map( paths )
-    PropertyGroup::PathMap.define( @project, paths )
+
+  def create_path_map(paths)
+    PropertyGroup::PathMap.define(@project, paths)
   end
-  
-  def create_path_list( spec )
-    if spec.is_a?( Hash )
-      spec = normalize( spec )
-      inclusions = spec.fetch( 'include', [] )
-      exclusions = spec.fetch( 'exclude', [] )
-      list = PropertyGroup::PathList.new( *inclusions )
-      list.exclude( *exclusions )
+
+  def create_path_list(spec)
+    if spec.is_a?(Hash)
+      spec = normalize(spec)
+      inclusions = spec.fetch('include', [])
+      exclusions = spec.fetch('exclude', [])
+      list = PropertyGroup::PathList.new(*inclusions)
+      list.exclude(*exclusions)
     else
-      list = PropertyGroup::PathList.new( *spec.to_a )
+      list = PropertyGroup::PathList.new(*spec.to_a)
     end
-    return list
+    list
   end
-  
-  def define_path( name, relative_path )
-    path_map.define_path( name, relative_path )
-    put( name.to_s, self.send( name ) )
+
+  def define_path(name, relative_path)
+    path_map.define_path(name, relative_path)
+    put(name.to_s, send(name))
   end
-  
-  def define_special_member( name, tag, value )
+
+  def define_special_member(name, tag, value)
     case tag
-    when 'pathmap' then define_member( name, create_path_map( value ) )
-    when 'pathlist' then define_member( name, create_path_list( value ) )
-    when 'path' then define_path( name, value )
-    when 'group' then
-      props = create_property_group( value )
-      define_member( name, props )
-    else define_member( name, value )
+    when 'pathmap' then define_member(name, create_path_map(value))
+    when 'pathlist' then define_member(name, create_path_list(value))
+    when 'path' then define_path(name, value)
+    when 'group'
+      props = create_property_group(value)
+      define_member(name, props)
+    else define_member(name, value)
     end
   end
 end
@@ -357,127 +351,125 @@ class PropertyGroup
 end
 
 class Project < PropertyGroup
-  def self.load( base, config_path, &block)
-    config = YAML.load_file( config_path )
-    new( base, config, &block )
+  def self.load(base, config_path, &block)
+    config = YAML.load_file(config_path)
+    new(base, config, &block)
   end
-  
-  def initialize( base, config, &block )
-    super( self )
-    config = normalize( config )
-    config[ 'name' ] ||= File.basename( base )
+
+  def initialize(base, config, &block)
+    super(self)
+    config = normalize(config)
+    config['name'] ||= File.basename(base)
     base = base.to_s.dup
-    define_member( 'base', base )
-    
-    load_path = config.delete( 'load_path' ) || []
-    load_libs = config.delete( 'load' ) || []
-    require_libs = config.delete( 'require' ) || []
-    system_path = config.delete( 'system_path' )
-    configure( config )
-    
+    define_member('base', base)
+
+    load_path = config.delete('load_path') || []
+    load_libs = config.delete('load') || []
+    require_libs = config.delete('require') || []
+    system_path = config.delete('system_path')
+    configure(config)
+
     # perform value expansion after all values have been established
     expand!
-    
+
     system_path and
-      ENV.add_onto( 'PATH', *system_path.map! { | name | path( name ) } )
-    
+      ENV.add_onto('PATH', *system_path.map! { |name| path(name) })
+
     for dir in load_path
-      $:.unshift( path( dir ) )
+      $:.unshift(path(dir))
     end
-    
+
     for lib in load_libs
-      load!( lib )
+      load!(lib)
     end
-    
+
     for lib in require_libs
-      require( lib )
+      require(lib)
     end
-    
-    block_given? and customize( &block )
+
+    block_given? and customize(&block)
   end
-  
-  def error!( message, *args )
-    message = format_string( message, *args )
+
+  def error!(message, *args)
+    message = format_string(message, *args)
     raise Project::Error, message, caller
   end
-  
-  def warn!( message, *args )
-    warn( format_string( message, *args ) )
+
+  def warn!(message, *args)
+    warn(format_string(message, *args))
   end
-  
-  def format_string( message, *args )
-    expand( sprintf( message.to_s, *args ) )
+
+  def format_string(message, *args)
+    expand(format(message.to_s, *args))
   end
-  
-  def path( *args )
-    expand( File.join( base, *args ) )
+
+  def path(*args)
+    expand(File.join(base, *args))
   end
-  
-  def path?( *args )
-    pt = path( *args )
-    File.exist?( pt ) and pt
+
+  def path?(*args)
+    pt = path(*args)
+    File.exist?(pt) and pt
   end
-  
-  def path!( *args )
-    Dir[ path( *args ) ]
+
+  def path!(*args)
+    Dir[path(*args)]
   end
-  
-  
-  def load!( path_glob )
-    path!( path_glob ).each { |lib| load( lib ) }
+
+  def load!(path_glob)
+    path!(path_glob).each { |lib| load(lib) }
   end
 end
 
 class PropertyGroup::PathMap < Module
-  def self.define( project, map )
+  def self.define(project, map)
     m = new do
-      const_set( :PROJECT, project )
-      const_set( :PATHS, {} )
-      const_set( :PATH_MAP, self )
-      extend( self )
+      const_set(:PROJECT, project)
+      const_set(:PATHS, {})
+      const_set(:PATH_MAP, self)
+      extend(self)
     end
-    
+
     for name, path in map
-      m.define_path( name, path )
+      m.define_path(name, path)
     end
-    
-    return m
+
+    m
   end
-  
+
   private_class_method :new
-  
-  def define_path( name, value )
-    name, value = name.to_s, value.to_s
-    self[ name ] = value
+
+  def define_path(name, value)
+    name = name.to_s
+    value = value.to_s
+    self[name] = value
     name_str = name.inspect
-    
-    class_eval( <<-END, __FILE__, __LINE__ + 1 )
+
+    class_eval(<<-END, __FILE__, __LINE__ + 1)
       def #{name}( *args )
-        PROJECT.path( PATHS[ #{ name_str } ], *args )
+        PROJECT.path( PATHS[ #{name_str} ], *args )
       end
-      
+
       def #{name}?( *args )
-        PROJECT.path?( PATHS[ #{ name_str } ], *args )
+        PROJECT.path?( PATHS[ #{name_str} ], *args )
       end
-      
+
       def #{name}!( *args )
-        PROJECT.path!( PATHS[ #{ name_str } ], *args )
+        PROJECT.path!( PATHS[ #{name_str} ], *args )
       end
     END
   end
-  
-  def []( name )
-    self::PATHS[ name.to_s ]
+
+  def [](name)
+    self::PATHS[name.to_s]
   end
-  
-  def []=( name, value )
-    self::PATHS[ name.to_s ] = value.to_s
+
+  def []=(name, value)
+    self::PATHS[name.to_s] = value.to_s
   end
 end
 
-Project::Error = Class.new( StandardError )
-
-
+Project::Error = Class.new(StandardError)
 
 # = FileList
 #
@@ -558,20 +550,19 @@ Project::Error = Class.new( StandardError )
 #   fl.exclude('./*~')
 #
 class PropertyGroup::PathList
-
   # TODO: Add glob options.
-  #attr :glob_options
+  # attr :glob_options
 
-  #include Cloneable
+  # include Cloneable
   def clone
     sibling = self.class.new
     instance_variables.each do |ivar|
-      value = self.instance_variable_get(ivar)
+      value = instance_variable_get(ivar)
       sibling.instance_variable_set(ivar, value.rake_dup)
     end
     sibling
   end
-  alias_method :dup, :clone
+  alias dup clone
 
   # == Method Delegation
   #
@@ -611,29 +602,29 @@ class PropertyGroup::PathList
     + - & |
   ]
 
-  DELEGATING_METHODS =  (ARRAY_METHODS + MUST_DEFINE - MUST_NOT_DEFINE).
-                          sort_by { |m| m.to_s }.uniq
+  DELEGATING_METHODS = (ARRAY_METHODS + MUST_DEFINE - MUST_NOT_DEFINE)
+                       .sort_by { |m| m.to_s }.uniq
 
   # Now do the delegation.
-  DELEGATING_METHODS.each_with_index do |sym, i|
+  DELEGATING_METHODS.each_with_index do |sym, _i|
     if SPECIAL_RETURN.include?(sym)
-      ln = __LINE__+1
+      ln = __LINE__ + 1
       class_eval(%{
         def #{sym}(*args, &block)
           resolve if @pending
           result = @items.send(:#{sym}, *args, &block)
           self.class.new.import(result)
         end
-      }, __FILE__, ln)
+      }, __FILE__, __LINE__ - 6)
     else
-      ln = __LINE__+1
+      ln = __LINE__ + 1
       class_eval(%{
         def #{sym}(*args, &block)
           resolve if @pending
           result = @items.send(:#{sym}, *args, &block)
           result.object_id == @items.object_id ? self : result
         end
-      }, __FILE__, ln)
+      }, __FILE__, __LINE__ - 6)
     end
   end
 
@@ -648,7 +639,7 @@ class PropertyGroup::PathList
   #     fl.exclude(/\bCVS\b/)
   #   end
   #
-  def initialize( *patterns )
+  def initialize(*patterns)
     @pending_add = []
     @pending = false
     @exclude_patterns = DEFAULT_IGNORE_PATTERNS.dup
@@ -677,7 +668,7 @@ class PropertyGroup::PathList
     @pending = true
     self
   end
-  alias :add :include
+  alias add include
 
   # Register a list of file name patterns that should be excluded
   # from the list.  Patterns may be regular expressions, glob
@@ -699,8 +690,8 @@ class PropertyGroup::PathList
   #   FileList['a.c', 'b.c'].exclude("a.*") => ['a.c', 'b.c']
   #
   def exclude(*patterns)
-    patterns.each do |pat| @exclude_patterns << pat end
-    if ! @pending
+    patterns.each { |pat| @exclude_patterns << pat }
+    unless @pending
       calculate_exclude_regexp
       reject! { |fn| fn =~ @exclude_re }
     end
@@ -710,12 +701,12 @@ class PropertyGroup::PathList
   # Clear all the exclude patterns so that we exclude nothing.
   def clear_exclude
     @exclude_patterns = []
-    calculate_exclude_regexp if ! @pending
+    calculate_exclude_regexp unless @pending
   end
 
   # Define equality.
-  def ==(array)
-    to_ary == array
+  def ==(other)
+    to_ary == other
   end
 
   # Return the internal array object.
@@ -745,7 +736,7 @@ class PropertyGroup::PathList
   def resolve
     if @pending
       @pending = false
-      @pending_add.each do |fn| resolve_add(fn) end
+      @pending_add.each { |fn| resolve_add(fn) }
       @pending_add = []
       resolve_exclude
     end
@@ -759,7 +750,7 @@ class PropertyGroup::PathList
       when Regexp
         ignores << pat
       when /[*.]/
-        Dir[ pat ].each do |p| ignores << p end
+        Dir[pat].each { |p| ignores << p }
       else
         ignores << Regexp.quote(pat)
       end
@@ -767,7 +758,7 @@ class PropertyGroup::PathList
     if ignores.empty?
       @exclude_re = /^$/
     else
-      re_str = ignores.collect { |p| "(" + p.to_s + ")" }.join("|")
+      re_str = ignores.collect { |p| '(' + p.to_s + ')' }.join('|')
       @exclude_re = Regexp.new(re_str)
     end
   end
@@ -776,7 +767,7 @@ class PropertyGroup::PathList
     case fn
     when Array
       fn.each { |f| resolve_add(f) }
-    when %r{[*?]}
+    when /[*?]/
       add_matching(fn)
     else
       self << fn
@@ -789,7 +780,7 @@ class PropertyGroup::PathList
       when Regexp
         reject! { |fn| fn =~ pat }
       when /[*.]/
-        reject_list = Dir[ pat ]
+        reject_list = Dir[pat]
         reject! { |fn| reject_list.include?(fn) }
       else
         reject! { |fn| fn == pat }
@@ -805,7 +796,7 @@ class PropertyGroup::PathList
   #   FileList['a.c', 'b.c'].sub(/\.c$/, '.o')  => ['a.o', 'b.o']
   #
   def sub(pat, rep)
-    inject(PropertyGroup::PathList.new) { |res, fn| res << fn.sub(pat,rep) }
+    inject(PropertyGroup::PathList.new) { |res, fn| res << fn.sub(pat, rep) }
   end
 
   # Return a new FileList with the results of running +gsub+ against
@@ -816,18 +807,18 @@ class PropertyGroup::PathList
   #      => ['lib\\test\\file', 'x\\y']
   #
   def gsub(pat, rep)
-    inject(PropertyGroup::PathList.new) { |res, fn| res << fn.gsub(pat,rep) }
+    inject(PropertyGroup::PathList.new) { |res, fn| res << fn.gsub(pat, rep) }
   end
 
   # Same as +sub+ except that the oringal file list is modified.
   def sub!(pat, rep)
-    each_with_index { |fn, i| self[i] = fn.sub(pat,rep) }
+    each_with_index { |fn, i| self[i] = fn.sub(pat, rep) }
     self
   end
 
   # Same as +gsub+ except that the original file list is modified.
   def gsub!(pat, rep)
-    each_with_index { |fn, i| self[i] = fn.gsub(pat,rep) }
+    each_with_index { |fn, i| self[i] = fn.gsub(pat, rep) }
     self
   end
 
@@ -839,7 +830,7 @@ class PropertyGroup::PathList
   #    array.collect { |item| item.ext(newext) }
   #
   # +ext+ is a user added method for the Array class.
-  def ext(newext='')
+  def ext(newext = '')
     collect { |fn| fn.ext(newext) }
   end
 
@@ -863,7 +854,6 @@ class PropertyGroup::PathList
             end
           end
         end
-        
       end
     end
   end
@@ -875,19 +865,19 @@ class PropertyGroup::PathList
     result = @items.partition(&block)
     [
       PropertyGroup::PathList.new.import(result[0]),
-      PropertyGroup::PathList.new.import(result[1]),
+      PropertyGroup::PathList.new.import(result[1])
     ]
   end
 
   # Convert a FileList to a string by joining all elements with a space.
   def to_s
     resolve if @pending
-    self.join(' ')
+    join(' ')
   end
 
   # Add matching glob patterns.
   def add_matching(pattern)
-    Dir[ pattern ].each do |fn|
+    Dir[pattern].each do |fn|
       self << fn unless exclude?(fn)
     end
   end
@@ -900,12 +890,12 @@ class PropertyGroup::PathList
   end
 
   DEFAULT_IGNORE_PATTERNS = [
-    /(^|[\/\\])CVS([\/\\]|$)/,
-    /(^|[\/\\])\.svn([\/\\]|$)/,
-    /(^|[\/\\])_darcs([\/\\]|$)/,
+    %r{(^|[/\\])CVS([/\\]|$)},
+    %r{(^|[/\\])\.svn([/\\]|$)},
+    %r{(^|[/\\])_darcs([/\\]|$)},
     /\.bak$/,
     /~$/,
-    /(^|[\/\\])core$/
+    %r{(^|[/\\])core$}
   ]
   @exclude_patterns = DEFAULT_IGNORE_PATTERNS.dup
 
@@ -937,11 +927,10 @@ class PropertyGroup::PathList
     def select_default_ignore_patterns
       @exclude_patterns = DEFAULT_IGNORE_PATTERNS.dup
     end
-    
+
     # Clear the ignore patterns.
     def clear_ignore_patterns
-      @exclude_patterns = [ /^$/ ]
+      @exclude_patterns = [/^$/]
     end
   end
-
 end # FileList

@@ -1,177 +1,178 @@
 #!/usr/bin/ruby
-# encoding: utf-8
-
 module ANTLR3
-members = CommonToken.members + [ :pred, :succ ]
-ChainedToken = Struct.new( *members )
+  members = CommonToken.members + %i[pred succ]
+  ChainedToken = Struct.new(*members)
 
-class ChainedToken
-  include Token
-  
-  def self.from_token( general_token, prev = nil )
-    new( token.type, token.channel,
-        token.text ? token.text.clone : nil,
-        token.input, token.start, token.stop,
-        -1, token.line, token.column, prev )
-  end
-  
-  def self.create_eof( tail_token, channel )
-    tail_token.connect_to( new( EOF, channel ) )
-  end
-  
-  def initialize( type = nil, channel = DEFAULT_CHANNEL, text = nil,
-                 input = nil, start = nil, stop = nil, index = 0,
-                 line = 0, column = -1, pred = nil, succ = nil )
-    super
-    block_given? and yield( self )
-    self.text.nil? && self.start && self.stop and
-      self.text = self.input.substring( self.start, self.stop )
-  end
-  
-  def walk
-    block_given? or return enum_for( __method__ )
-    ptr = self
-    begin
-      yield( ptr )
-      ptr = succ
-    end while ptr
-  end
-  
-  def walk_backward
-    block_given? or return enum_for( __method__ )
-    ptr = self
-    begin
-      yield( ptr )
-      ptr = pred
-    end while ptr
-  end
-  
-  def eof?
-    type == EOF
-  end
-  
-  def <<( general_token )
-    t = self.class.from_token( general_token, self )
-    t.index = index + 1
-    self.succ = t
-  end
-  
-  def connect_to( token )
-    token.prev = self
-    token.index = index + 1
-    self.succ = token
-  end
-  
-  def delete
-    a, b = self.pred, self.succ
-    self.succ = self.pred = nil
-    a.succ = b if a
-    b.prev = a if b
-    return b
-  end
-  
-  def head?
-    pred.nil?
-  end
-  
-  def tail?
-    succ.nil?
-  end
-  
-  alias :prev :pred
-  alias :next :succ
-  protected :pred=, :succ=
-end
+  class ChainedToken
+    include Token
 
-class ChainedTokenStream
-  include TokenStream
-  attr_reader :head, :tail
-  
-  def initialize( token_source, options = {}, &filter )
-    @token_source = token_source
-    @last_marker = nil
-    @channel = options.fetch( :channel, DEFAULT_CHANNEL )
-    @source_name = options.fetch( :source_name ) {  @token_source.source_name rescue nil }
-    @cursor = @tail = @head = nil
-  end
-  
-  def peek( k = 1 )
-    return( ( t = look( k ) ) ? t.type : EOF )
-  end
-  
-  def look( k = 1 )
-    @head or first_harvest
-    case
-    when k == 1 then @cursor
-    when k > 1 then walk_foward( k - 1 )
-    when k < 0 then walk_backward( -k )
-    when k == 0 then nil
+    def self.from_token(_general_token, prev = nil)
+      new(token.type, token.channel,
+          token.text ? token.text.clone : nil,
+          token.input, token.start, token.stop,
+          -1, token.line, token.column, prev)
     end
-  end
-  
-  def consume
-    @head or first_harvest
-    @cursor.eof? and return( nil )
-    prev, @cursor = @cursor, look( 2 )
-    return( prev )
-  end
-  
-  def reset
-    @cursor = @head or return( self )
-    while @cursor and @cursor.channel != @channel
-      @cursor = @cursor.next || fetch
+
+    def self.create_eof(tail_token, channel)
+      tail_token.connect_to(new(EOF, channel))
     end
-    @last_marker = nil
-    return self
-  end
-  
-  def mark
-    @last_marker = @cursor
-  end
-  
-  
-private
-  
-  # the first call to a method like look or peek or consume
-  # requires initializing the token pointers
-  def first_harvest
-    @head.nil? or return( nil )
-    @tail = @head = @filter ? @token_source.find( &@filter ) : @token_source.next
-    @cursor = @head or return( nil )
-    while @cursor and @cursor.channel != @channel
-      @cursor = fetch
+
+    def initialize(type = nil, channel = DEFAULT_CHANNEL, text = nil,
+                   input = nil, start = nil, stop = nil, index = 0,
+                   line = 0, column = -1, pred = nil, succ = nil)
+      super
+      block_given? and yield(self)
+      self.text.nil? && self.start && self.stop and
+        self.text = self.input.substring(self.start, self.stop)
     end
-  rescue StopIteration
-  end
-  
-  def walk_foward( steps )
-    cursor = @cursor
-    steps.times do
+
+    def walk
+      block_given? or return enum_for(__method__)
+      ptr = self
       begin
-        n = cursor.next || fetch or return( nil )
-      end until n.channel == @channel
-      cursor = n
+        yield(ptr)
+        ptr = succ
+      end while ptr
     end
-    return cursor
-  end
-  
-  def walk_backward( steps )
-    count = 0
-    @cursor.walk_backward.find do |t|
-      t.channel == @channel and ( count += 1 ) == steps
-    end
-  end
-  
-  def harvest
-    begin     token = fetch or return( nil )
-    end until token.channel == @channel
-  end
-  
-  def fetch
-    @tail <<= @token_source.next
-  end
-end
 
+    def walk_backward
+      block_given? or return enum_for(__method__)
+      ptr = self
+      begin
+        yield(ptr)
+        ptr = pred
+      end while ptr
+    end
+
+    def eof?
+      type == EOF
+    end
+
+    def <<(general_token)
+      t = self.class.from_token(general_token, self)
+      t.index = index + 1
+      self.succ = t
+    end
+
+    def connect_to(token)
+      token.prev = self
+      token.index = index + 1
+      self.succ = token
+    end
+
+    def delete
+      a = pred
+      b = succ
+      self.succ = self.pred = nil
+      a.succ = b if a
+      b.prev = a if b
+      b
+    end
+
+    def head?
+      pred.nil?
+    end
+
+    def tail?
+      succ.nil?
+    end
+
+    alias prev pred
+    alias next succ
+    protected :pred=, :succ=
+  end
+
+  class ChainedTokenStream
+    include TokenStream
+    attr_reader :head, :tail
+
+    def initialize(token_source, options = {})
+      @token_source = token_source
+      @last_marker = nil
+      @channel = options.fetch(:channel, DEFAULT_CHANNEL)
+      @source_name = options.fetch(:source_name) do
+        @token_source.source_name
+      rescue StandardError
+        nil
+      end
+      @cursor = @tail = @head = nil
+    end
+
+    def peek(k = 1)
+      ((t = look(k)) ? t.type : EOF)
+    end
+
+    def look(k = 1)
+      @head or first_harvest
+      if k == 1
+        @cursor
+      elsif k > 1
+        walk_foward(k - 1)
+      elsif k < 0
+        walk_backward(-k)
+      elsif k == 0
+        nil
+      end
+    end
+
+    def consume
+      @head or first_harvest
+      @cursor.eof? and return(nil)
+      prev = @cursor
+      @cursor = look(2)
+      prev
+    end
+
+    def reset
+      @cursor = @head or return(self)
+      @cursor = @cursor.next || fetch while @cursor and @cursor.channel != @channel
+      @last_marker = nil
+      self
+    end
+
+    def mark
+      @last_marker = @cursor
+    end
+
+    private
+
+    # the first call to a method like look or peek or consume
+    # requires initializing the token pointers
+    def first_harvest
+      @head.nil? or return(nil)
+      @tail = @head = @filter ? @token_source.find(&@filter) : @token_source.next
+      @cursor = @head or return(nil)
+      @cursor = fetch while @cursor and @cursor.channel != @channel
+    rescue StopIteration
+    end
+
+    def walk_foward(steps)
+      cursor = @cursor
+      steps.times do
+        begin
+          n = cursor.next || fetch or return(nil)
+        end until n.channel == @channel
+        cursor = n
+      end
+      cursor
+    end
+
+    def walk_backward(steps)
+      count = 0
+      @cursor.walk_backward.find do |t|
+        t.channel == @channel and (count += 1) == steps
+      end
+    end
+
+    def harvest
+      begin     token = fetch or return(nil)
+      end until token.channel == @channel
+    end
+
+    def fetch
+      @tail <<= @token_source.next
+    end
+  end
 end
 
 __END__

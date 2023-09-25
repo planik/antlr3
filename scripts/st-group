@@ -1,8 +1,6 @@
 #!/usr/bin/env ruby
-# encoding: utf-8
-
-__DIR__ = File.dirname( __FILE__ )
-load File.join( __DIR__, 'script-helper.rb' )
+__DIR__ = File.dirname(__FILE__)
+load File.join(__DIR__, 'script-helper.rb')
 
 require 'main'
 require 'string-template'
@@ -10,193 +8,188 @@ autoload :Monocle, 'monocle'
 
 Main do
   def out
-    @out ||= Monocle::Output( stdout )
+    @out ||= Monocle::Output(stdout)
   end
-  
+
   mixin :Completion do
-    def complete( description, names, partial )
-      matches = names.select { |name| name.start_with?( partial ) }
+    def complete(description, names, partial)
+      matches = names.select { |name| name.start_with?(partial) }
       case matches.length
       when 0
-        return( nil )
-      when 1 then return( matches.first )
+        nil
+      when 1 then matches.first
       else
-        ambiguous_completion!( description, matches, partial )
+        ambiguous_completion!(description, matches, partial)
       end
     end
-    
-    def ambiguous_completion!( description, matches, partial )
-      stderr.puts( <<-END.here_flow! )
-      | cannot unambiguously complete partial #{ description }
-      | #{ partial.inspect }
+
+    def ambiguous_completion!(description, matches, partial)
+      stderr.puts(<<-END.here_flow!)
+      | cannot unambiguously complete partial #{description}
+      | #{partial.inspect}
       END
-      out.list( matches, :max_width => ( out.screen_width * 0.8 ).round )
-      exit( 1 )
+      out.list(matches, max_width: (out.screen_width * 0.8).round)
+      exit(1)
     end
-    
   end
-  
+
   mixin :STGInput do
     mixin :Completion
-    
+
     if $stdin.tty?
-      argument( :file ) do
-        description( "the path to a string template group file" )
-        arity( 1 )
+      argument(:file) do
+        description('the path to a string template group file')
+        arity(1)
       end
     end
-    
+
     def file_name
-      $stdin.tty? ? params[ :file ].value : '(stdin)'
+      $stdin.tty? ? params[:file].value : '(stdin)'
     end
-    
+
     def group
       @group ||=
         if stdin.tty?
-          StringTemplate::Group.load( params[ :file ].value )
+          StringTemplate::Group.load(params[:file].value)
         else
-          StringTemplate::Group.parse( stdin.read, "(stdin)" )
+          StringTemplate::Group.parse(stdin.read, '(stdin)')
         end
     end
-    
+
     def template_names
       group.templates.keys.sort
     end
-    
-    def template( name )
+
+    def template(name)
       templates = group.templates
-      templates.fetch( name ) do
-        if c = complete( 'template name', templates.keys, name )
-          return templates[ c ]
-        else
-          stderr.puts( <<-END.here_indent! )
-          | failed to locate a template named #{ name.inspect }
-          | in #{ file_name }
-          END
-          exit( 1 )
-        end
+      templates.fetch(name) do
+        return templates[c] if c = complete('template name', templates.keys, name)
+
+        stderr.puts(<<-END.here_indent!)
+          | failed to locate a template named #{name.inspect}
+          | in #{file_name}
+        END
+        exit(1)
       end
     end
-    
+
     def type_map_names
       @group.type_maps.keys.sort
     end
   end
-  
 
-  
-  mode( :unzip ) do
-    argument( :file ) do
-      description( "The stg file to break up into parts" )
+  mode(:unzip) do
+    argument(:file) do
+      description('The stg file to break up into parts')
       validate { |pt| pt =~ /\.stg$/i }
-      arity( 1 )
+      arity(1)
     end
-    
-    option( 'directory', 'd' ) do
-      description( "The directory to put the output" )
+
+    option('directory', 'd') do
+      description('The directory to put the output')
       argument_required
       validate do |pt|
-        if test( ?e, pt ) and not test( ?d, pt )
-          fail( "%s is not a directory", pt )
-        elsif not test( ?d, pt ) then Dir.mkdir( pt )
+        if test('e', pt) and !test('d', pt)
+          raise('%s is not a directory', pt)
+        elsif !test('d', pt) then Dir.mkdir(pt)
         end
       end
     end
-    
-    option( 'quiet', 'q' ) do
-      description( "do not print information to stdout/stderr" )
+
+    option('quiet', 'q') do
+      description('do not print information to stdout/stderr')
       argument_optional
-      arity( -1 )
+      arity(-1)
     end
-    
+
     def run
       opts = {}
-      opts[ :verbose ] = params[ :quiet ].given? ? false : true
-      opts[ :output_directory ] = params[ :directory ].value
-      file = params[ :file ].value
-      
-      StringTemplate::Zip.unzip( file, opts )
+      opts[:verbose] = params[:quiet].given? ? false : true
+      opts[:output_directory] = params[:directory].value
+      file = params[:file].value
+
+      StringTemplate::Zip.unzip(file, opts)
     end
   end
-  
-  mode( :zip ) do
-    argument( :directory ) do
-      description( "The template directory containing the *.st files" )
-      validate { |pt| test( ?d, pt ) }
+
+  mode(:zip) do
+    argument(:directory) do
+      description('The template directory containing the *.st files')
+      validate { |pt| test('d', pt) }
     end
-    
-    option( 'quiet', 'q' ) do
-      description( "do not print information to stdout/stderr" )
+
+    option('quiet', 'q') do
+      description('do not print information to stdout/stderr')
       argument_optional
-      arity( -1 )
+      arity(-1)
     end
-    
+
     def run
-      template_directory = params[ :directory ].value
-      name = File.basename( template_directory )
+      template_directory = params[:directory].value
+      name = File.basename(template_directory)
       opts = {}
-      opts[ :template_directory ] = template_directory
-      opts[ :verbose ] = params[ :quiet ].given? ? false : true
-      
+      opts[:template_directory] = template_directory
+      opts[:verbose] = params[:quiet].given? ? false : true
+
       manifest = template_directory / name + '.stg'
-      
-      StringTemplate::Zip.zip( manifest, opts )
+
+      StringTemplate::Zip.zip(manifest, opts)
     end
   end
-  
+
   mode :info do
-    description( <<-END.here_indent! )
+    description(<<-END.here_indent!)
     | display name information about the definitions contained
     | within a string template group file
     END
-    
+
     mixin :STGInput
-    
+
     def run
-      out.puts( "file: #{ file_name }" )
-      out.puts( "group: #{ group.name }" )
-      group.supergroup and out.puts( "supergroup: #{ group.supergroup }" )
+      out.puts("file: #{file_name}")
+      out.puts("group: #{group.name}")
+      group.supergroup and out.puts("supergroup: #{group.supergroup}")
       group.interfaces.empty? or
-        out.puts( "implements: #{ group.interfaces.join( ', ' ) }" )
-      out.puts( '' )
-      
-      unless ( names = template_names ).empty?
-        out.puts( "templates:" )
-        out.indent( 2 ) do
-          out.list( names )
+        out.puts("implements: #{group.interfaces.join(', ')}")
+      out.puts('')
+
+      unless (names = template_names).empty?
+        out.puts('templates:')
+        out.indent(2) do
+          out.list(names)
         end
         out.puts ''
       end
-      
-      unless ( names = type_map_names ).empty?
-        out.puts( "type maps:" )
-        out.indent( 2 ) do
-          out.list( names )
-        end
-        out.puts ''
+
+      return if (names = type_map_names).empty?
+
+      out.puts('type maps:')
+      out.indent(2) do
+        out.list(names)
       end
+      out.puts ''
     end
   end
-  
+
   mode :show do
-    description( <<-END.here_indent! )
+    description(<<-END.here_indent!)
     | extract and print a single template definition from
     | a string template group file
     END
-    
+
     mixin :STGInput
-    
+
     argument :template_name do
-      description "the name of the template to display"
+      description 'the name of the template to display'
       arity 1
     end
-    
+
     def run
-      stdout.puts( 
-        template( params[ :template_name ].value ).source
+      stdout.puts(
+        template(params[:template_name].value).source
       )
     end
   end
-  
+
   run { help! }
 end

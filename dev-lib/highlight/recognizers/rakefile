@@ -1,32 +1,25 @@
 #!/usr/bin/ruby
-# encoding: utf-8
-
 require 'antlr3/task'
 
-file( 'ANTLRv3Grammar.g' )
+file('ANTLRv3Grammar.g')
 
-file( 'antlr3-parser.rb' => %w(ANTLRv3Grammar.g) ) do
-  
-  tasks = ANTLR3::CompileTask.define( 'ANTLRv3Grammar.g' )
+file('antlr3-parser.rb' => %w[ANTLRv3Grammar.g]) do
+  tasks = ANTLR3::CompileTask.define('ANTLRv3Grammar.g')
   tasks.compile_task.invoke
-  
-  mv( 'ANTLRv3GrammarParser.rb', 'antlr3-parser.rb' )
-  mv( 'ANTLRv3GrammarLexer.rb',  'antlr3-lexer.rb'  )
-  rm( 'ANTLRv3Grammar.tokens' )
-  
+
+  mv('ANTLRv3GrammarParser.rb', 'antlr3-parser.rb')
+  mv('ANTLRv3GrammarLexer.rb',  'antlr3-lexer.rb')
+  rm('ANTLRv3Grammar.tokens')
 end
 
+file('Shell.g')
 
-file( 'Shell.g' )
-
-file( 'shell.rb' => %w( Shell.g ) ) do
-
-  tasks = ANTLR3::CompileTask.define( 'Shell.g' )
+file('shell.rb' => %w[Shell.g]) do
+  tasks = ANTLR3::CompileTask.define('Shell.g')
   tasks.compile_task.invoke
-  
-  mv( 'Shell.rb', 'shell.rb' )
-  rm( 'Shell.tokens' )
-  
+
+  mv('Shell.rb', 'shell.rb')
+  rm('Shell.tokens')
 end
 
-task( :default => %w( antlr3-parser.rb shell.rb ) )
+task(default: %w[antlr3-parser.rb shell.rb])

@@ -1,11 +1,8 @@
 #!/usr/bin/ruby
-# encoding: utf-8
-
 require 'antlr3/test/functional'
 
 class TestBacktracking < ANTLR3::Test::Functional
-
-  inline_grammar( <<-'END' )
+  inline_grammar(<<-'END')
     grammar Backtrack;
     options {
 			language = Ruby;
@@ -234,10 +231,9 @@ class TestBacktracking < ANTLR3::Test::Functional
         ;
   END
 
-  example "grammar with backtracking and memoization" do
-    lexer = Backtrack::Lexer.new( 'int a;' )
+  example 'grammar with backtracking and memoization' do
+    lexer = Backtrack::Lexer.new('int a;')
     parser = Backtrack::Parser.new lexer
     events = parser.translation_unit
   end
-
 end

@@ -2,17 +2,17 @@
 establish 'standard'
 
 options = DATA.read.split(/\n\n/).map do |chunk|
-  name, desc = chunk.split(/\n/,2)
+  name, desc = chunk.split(/\n/, 2)
   desc.strip!
   desc = desc.fold
-  default = desc =~ (/ The default is (?:to )?(.*?)\.$/) ? $1 : nil
+  default = desc =~ (/ The default is (?:to )?(.*?)\.$/) ? Regexp.last_match(1) : nil
   desc[$~[0]] = '' if $~
-  
+
   default =~ /\bfalse\b/ and default = 'false'
   [name, desc, default]
 end
 
-YAML.dump(options, $stdout) #.map { |i| i[2] }
+YAML.dump(options, $stdout) # .map { |i| i[2] }
 
 __END__
 language

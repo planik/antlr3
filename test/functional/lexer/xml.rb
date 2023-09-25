@@ -1,13 +1,11 @@
 #!/usr/bin/ruby
-# encoding: utf-8
-
 require 'antlr3/test/functional'
 
 class XMLLexerTest < ANTLR3::Test::Functional
-  inline_grammar( <<-'END' )
+  inline_grammar(<<-'END')
     lexer grammar XML;
     options { language = Ruby; }
-    
+
     @members {
       include ANTLR3::Test::CaptureOutput
       include ANTLR3::Test::RaiseErrors
@@ -17,11 +15,11 @@ class XMLLexerTest < ANTLR3::Test::Functional
         \%("#{ text }")
       end
     }
-    
+
     DOCUMENT
         :  XMLDECL? WS? DOCTYPE? WS? ELEMENT WS? 
         ;
-    
+
     fragment DOCTYPE
         :
             '<!DOCTYPE' WS rootElementName=GENERIC_ID 
@@ -42,22 +40,22 @@ class XMLLexerTest < ANTLR3::Test::Functional
             )?
         '>'
       ;
-    
+
     fragment INTERNAL_DTD : '[' (options {greedy=false;} : .)* ']' ;
-    
+
     fragment PI :
             '<?' target=GENERIC_ID WS? 
               {say("PI: " + $target.text)}
             ( ATTRIBUTE WS? )*  '?>'
       ;
-    
+
     fragment XMLDECL :
             '<?' ('x'|'X') ('m'|'M') ('l'|'L') WS? 
               {say("XML declaration")}
             ( ATTRIBUTE WS? )*  '?>'
       ;
-    
-    
+
+
     fragment ELEMENT
         : ( START_TAG
                 (ELEMENT
@@ -73,55 +71,55 @@ class XMLLexerTest < ANTLR3::Test::Functional
             | EMPTY_ELEMENT
             )
         ;
-    
+
     fragment START_TAG 
         : '<' WS? name=GENERIC_ID WS?
               {say("Start Tag: " + $name.text)}
             ( ATTRIBUTE WS? )* '>'
         ;
-    
+
     fragment EMPTY_ELEMENT 
         : '<' WS? name=GENERIC_ID WS?
               {say("Empty Element: " + $name.text)}
             ( ATTRIBUTE WS? )* '/>'
         ;
-    
+
     fragment ATTRIBUTE 
         : name=GENERIC_ID WS? '=' WS? value=VALUE
             {say("Attr: " + $name.text + " = "+ $value.text)}
         ;
-    
+
     fragment END_TAG 
         : '</' WS? name=GENERIC_ID WS? '>'
             {say("End Tag: " + $name.text)}
         ;
-    
+
     fragment COMMENT
       :	'<!--' (options {greedy=false;} : .)* '-->'
       ;
-    
+
     fragment CDATA
       :	'<![CDATA[' (options {greedy=false;} : .)* ']]>'
       ;
-    
+
     fragment PCDATA : (~'<')+ ; 
-    
+
     fragment VALUE : 
             ( '\"' (~'\"')* '\"'
             | '\'' (~'\'')* '\''
             )
       ;
-    
+
     fragment GENERIC_ID 
         : ( LETTER | '_' | ':') 
             ( options {greedy=true;} : LETTER | '0'..'9' | '.' | '-' | '_' | ':' )*
       ;
-    
+
     fragment LETTER
       : 'a'..'z' 
       | 'A'..'Z'
       ;
-    
+
     fragment WS  :
             (   ' '
             |   '\t'
@@ -132,9 +130,9 @@ class XMLLexerTest < ANTLR3::Test::Functional
             )+
         ;    
   END
-  
-  it "should be valid" do
-    lexer = XML::Lexer.new( <<-'END'.fixed_indent( 0 ) )
+
+  it 'should be valid' do
+    lexer = XML::Lexer.new(<<-'END'.fixed_indent(0))
       <?xml version='1.0'?>
       <!DOCTYPE component [
       <!ELEMENT component (PCDATA|sub)*>
@@ -143,7 +141,7 @@ class XMLLexerTest < ANTLR3::Test::Functional
                 attr2 CDATA #IMPLIED
       >
       <!ELMENT sub EMPTY>
-      
+
       ]>
       <component attr="val'ue" attr2='val"ue'>
       <!-- This is a comment -->
@@ -157,10 +155,10 @@ class XMLLexerTest < ANTLR3::Test::Functional
       <sub></sub>
       </component>
     END
-    
+
     lexer.map { |tk| tk }
-    
-    lexer.output.should == <<-'END'.fixed_indent( 0 )
+
+    lexer.output.should == <<-'END'.fixed_indent(0)
       XML declaration
       Attr: version = '1.0'
       ROOTELEMENT: component
@@ -171,7 +169,7 @@ class XMLLexerTest < ANTLR3::Test::Functional
                 attr2 CDATA #IMPLIED
       >
       <!ELMENT sub EMPTY>
-      
+
       ]
       Start Tag: component
       Attr: attr = "val'ue"
@@ -202,5 +200,4 @@ class XMLLexerTest < ANTLR3::Test::Functional
       End Tag: component
     END
   end
-
 end

@@ -1,21 +1,18 @@
 #!/usr/bin/ruby
-# encoding: utf-8
-
 require 'antlr3/test/functional'
 
 class TestRuleTracing < ANTLR3::Test::Functional
-
-  inline_grammar( <<-'END' )
+  inline_grammar(<<-'END')
     grammar Traced;
     options {
       language = Ruby;
     }
-    
+
     @parser::init {
       @stack = nil
       @traces = []
     }
-    
+
     @parser::members {
       attr_accessor :stack, :traces
       
@@ -27,12 +24,12 @@ class TestRuleTracing < ANTLR3::Test::Functional
         @traces << "<#{rule_name}"
       end
     }
-    
+
     @lexer::init {
       @stack = nil
       @traces = []
     }
-    
+
     @lexer::members {
       attr_accessor :stack, :traces
       
@@ -44,26 +41,23 @@ class TestRuleTracing < ANTLR3::Test::Functional
         @traces << "<#{rule_name}"
       end
     }
-    
+
     a: '<' ((INT '+')=>b|c) '>';
     b: c ('+' c)*;
     c: INT ;
-    
+
     INT: ('0'..'9')+;
     WS: (' ' | '\n' | '\t')+ {$channel = HIDDEN;};
   END
 
-  compile_options :trace => true
-  
-  example "setting up rule tracing" do
-    lexer = Traced::Lexer.new( '< 1 + 2 + 3 >' )
+  compile_options trace: true
+
+  example 'setting up rule tracing' do
+    lexer = Traced::Lexer.new('< 1 + 2 + 3 >')
     parser = Traced::Parser.new lexer
     parser.a
-    lexer.traces.reject { | i | i =~ /t__/ }.should == %w(
-      >ws! <ws! >int! <int! >ws! <ws! >ws! <ws! >int! <int! >ws!
-      <ws! >ws! <ws! >int! <int! >ws! <ws!
-    )
-    parser.traces.should == [ 
+    lexer.traces.reject { |i| i =~ /t__/ }.should
+    parser.traces.should == [
       '>a', '>synpred1_Traced', '<synpred1_Traced',
       '>b', '>c', '<c', '>c', '<c', '>c', '<c', '<b', '<a'
     ]

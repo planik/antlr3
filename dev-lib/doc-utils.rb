@@ -1,6 +1,4 @@
 #!/usr/bin/ruby
-# encoding: utf-8
-
 require 'redcloth'
 require 'highlight'
 require 'erb'
@@ -9,21 +7,20 @@ require 'inflection'
 autoload :OpenStruct, 'ostruct'
 
 module ANTLRDoc
-  WIKI_LINK_RX = %r<
+  WIKI_LINK_RX = /
     ‹
     ( (?:\S|\ (?=\S))+? )
     (?: : \ ? ( (?:\S|\ (?=\S))+? ) )?
     ›
-  >x
+  /x
 
-  REGION = %r<
+  REGION = /
     ^(
       « \ * (\S+) \ * \n    # tag line:     « ruby
         (.*?) \n            # body:         some = ruby.code
       » \ * \n              # closing line: »
     )
-  >mx
-  
+  /mx
 end
 
 require 'doc-utils/markup'

@@ -1,59 +1,56 @@
 #!/usr/bin/env ruby
-# encoding: utf-8
+#      ::about::
+# author:     Kyle Yetter <kcy5b@yahoo.com>
+# created on: October 18, 2009
+# purpose:    utility script
+# summary:    convert textile-based documentation files to HTML
 
-=begin      ::about::
-author:     Kyle Yetter <kcy5b@yahoo.com>
-created on: October 18, 2009
-purpose:    utility script
-summary:    convert textile-based documentation files to HTML
-=end
-
-__DIR__ = File.dirname( __FILE__ )
-load File.join( __DIR__, 'script-helper.rb' )
+__DIR__ = File.dirname(__FILE__)
+load File.join(__DIR__, 'script-helper.rb')
 
 require 'main'
 require 'erb'
 
 Main do
-  argument( :files ) do
-    description( "documentation files" )
-    validate { | f | File.file?( f ) }
-    arity( -2 )
+  argument(:files) do
+    description('documentation files')
+    validate { |f| File.file?(f) }
+    arity(-2)
   end
-  
+
   option 'template', 't' do
     argument_required
-    arity( 1 )
-    cast do | file |
-      ERB.new( File.read( file ), nil, '%' )
+    arity(1)
+    cast do |file|
+      ERB.new(File.read(file), trim_mode: '%')
     end
-    default( $project.path( 'doc/erb/template.erb' ) )
+    default($project.path('doc/erb/template.erb'))
   end
-  
+
   option 'author', 'a' do
     argument_required
-    arity( 1 )
-    default( $project.author )
+    arity(1)
+    default($project.author)
   end
-  
+
   option 'output-directory', 'o' do
     argument_required
-    arity( 1 )
-    default( $project.path( 'doc/html' ) )
+    arity(1)
+    default($project.path('doc/html'))
   end
-  
+
   def run
-    #$wiki_mode = params[ :wiki ].given?
+    # $wiki_mode = params[ :wiki ].given?
     require 'doc-utils'
     options = {
-      :output_directory => params[ 'output-directory' ].value,
-      :author => params[ :author ].value
+      output_directory: params['output-directory'].value,
+      author: params[:author].value
     }
-    template = params[ :template ].value
-    
+    template = params[:template].value
+
     articles =
-      params[ :files ].values.map do | file |
-        ANTLRDoc::Article.load( file, template, options )
+      params[:files].values.map do |file|
+        ANTLRDoc::Article.load(file, template, options)
       end
     for article in articles
       article.convert

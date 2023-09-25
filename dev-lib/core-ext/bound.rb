@@ -1,5 +1,4 @@
 module Comparable
-
   # Returns the lower of self or x.
   #
   #   4.at_least(5)  #=> 5
@@ -8,7 +7,7 @@ module Comparable
   #   CREDIT Florian Gross
 
   def at_least(x)
-    (self >= x) ? self : x
+    self >= x ? self : x
   end
 
   # Returns the greater of self or x.
@@ -19,7 +18,7 @@ module Comparable
   #   CREDIT Florian Gross
 
   def at_most(x)
-    (self <= x) ? self : x
+    self <= x ? self : x
   end
 
   # Returns self if above the given lower bound, or
@@ -35,12 +34,11 @@ module Comparable
   #
   #   CREDIT Trans
 
-  def bound(lower, upper=nil)
+  def bound(lower, upper = nil)
     return lower if self < lower
     return self unless upper
     return upper if self > upper
-    return self
+
+    self
   end
-
 end
-

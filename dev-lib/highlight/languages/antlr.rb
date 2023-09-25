@@ -1,26 +1,24 @@
 #!/usr/bin/ruby
-# encoding: utf-8
-
 require 'strscan'
 
 module Highlight
-  load_recognizer( 'antlr3-grammar' )
+  load_recognizer('antlr3-grammar')
 
   module Languages
     class ANTLR
       CATEGORIES = {}
 
-      def self.add_category( name, *types )
+      def self.add_category(name, *types)
         for type in types
-          Integer === type or type = ANTLRv3Grammar::TokenData[ type ]
-          CATEGORIES[ type ] = name
+          type.is_a?(Integer) or type = ANTLRv3Grammar::TokenData[type]
+          CATEGORIES[type] = name
         end
-        return nil
+        nil
       end
 
-      def self.load( path, opts = {} )
-        opts[ :file ] ||= path.to_s
-        new( File.read( path ), opts )
+      def self.load(path, opts = {})
+        opts[:file] ||= path.to_s
+        new(File.read(path), opts)
       end
 
       include ANTLRv3Grammar::TokenData
@@ -29,85 +27,94 @@ module Highlight
       RULE_DECLARATION = -3
       LABEL = -4
       NAME  = -5
-      DOLLAR = ANTLRv3Grammar::TokenData[ "'$'" ]
+      DOLLAR = ANTLRv3Grammar::TokenData["'$'"]
 
-      add_category( 'o', REWRITE, ROOT, BANG, RANGE,
-      LABEL_ASSIGN, LIST_LABEL_ASSIGN,
-      "'=>'", "'~'", "'.'", "'?'", "'+'", "'*'" )
-      add_category( 'k',
-        SCOPE, FRAGMENT, KEYWORD, "'catch'", "'finally'",
-        "'grammar'", "'lexer'", "'parser'", "'private'",
-        "'protected'", "'public'", "'throws'", "'tree'",
-        OPTIONS, TOKENS
-      )
-      add_category( 'c', SL_COMMENT, DOC_COMMENT, ML_COMMENT )
-      add_category( 'p', "';'", "':'", "'<'", "'>'", "'$'",
-      "'('", "')'", "'|'", "','", "'}'", TREE_BEGIN )
-      add_category( 'kd', RULE_DECLARATION )
-      add_category( 'nl', LABEL )
-      add_category( 'n', RULE_REF, TOKEN_REF )
-      add_category( 's2', STRING_LITERAL, CHAR_LITERAL )
-      add_category( 'name', NAME )
-      
+      add_category('o', REWRITE, ROOT, BANG, RANGE,
+                   LABEL_ASSIGN, LIST_LABEL_ASSIGN,
+                   "'=>'", "'~'", "'.'", "'?'", "'+'", "'*'")
+      add_category('k',
+                   SCOPE, FRAGMENT, KEYWORD, "'catch'", "'finally'",
+                   "'grammar'", "'lexer'", "'parser'", "'private'",
+                   "'protected'", "'public'", "'throws'", "'tree'",
+                   OPTIONS, TOKENS)
+      add_category('c', SL_COMMENT, DOC_COMMENT, ML_COMMENT)
+      add_category('p', "';'", "':'", "'<'", "'>'", "'$'",
+                   "'('", "')'", "'|'", "','", "'}'", TREE_BEGIN)
+      add_category('kd', RULE_DECLARATION)
+      add_category('nl', LABEL)
+      add_category('n', RULE_REF, TOKEN_REF)
+      add_category('s2', STRING_LITERAL, CHAR_LITERAL)
+      add_category('name', NAME)
+
       attr_reader :lexer, :input, :tokens, :tree, :name, :rules, :html
 
-      def initialize( source, options = {} )
-        @line_offset = options.fetch( :line, 1 )
-        source = source.to_s.expand_tabs( options[ :tab_width ] || 4 )
-        @input = ANTLR3::StringStream.new( source, options )
-        lexer = ANTLRv3Grammar::Lexer.new( @input )
-        @tokens = ANTLR3::CommonTokenStream.new( lexer )
-        parser = ANTLRv3Grammar::Parser.new( @tokens )
+      def initialize(source, options = {})
+        @line_offset = options.fetch(:line, 1)
+        source = source.to_s.expand_tabs(options[:tab_width] || 4)
+        @input = ANTLR3::StringStream.new(source, options)
+        lexer = ANTLRv3Grammar::Lexer.new(@input)
+        @tokens = ANTLR3::CommonTokenStream.new(lexer)
+        parser = ANTLRv3Grammar::Parser.new(@tokens)
 
-        @style = options.fetch( :style, 'spectacular' )
+        @style = options.fetch(:style, 'spectacular')
 
-        if rule_name = options[ :snippet ]
-          @tree = parser.send( rule_name ).tree rescue nil
-          @name = options[ :name ] || "#{ rule_name }-#{ __id__.abs }"
+        if rule_name = options[:snippet]
+          @tree = begin
+            parser.send(rule_name).tree
+          rescue StandardError
+            nil
+          end
+          @name = options[:name] || "#{rule_name}-#{__id__.abs}"
         else
-          @tree = parser.grammar_def.tree rescue nil
-          @name = ( options[ :name ] || @tree[ 0 ].text ) rescue 'unknown'
+          @tree = begin
+            parser.grammar_def.tree
+          rescue StandardError
+            nil
+          end
+          @name = begin
+            (options[:name] || @tree[0].text)
+          rescue StandardError
+            'unknown'
+          end
         end
 
         @rules = {}
         @token_index = {}
         for token in @tokens
           token.channel = :default
-          @token_index[ token.start ] = token
+          @token_index[token.start] = token
         end
         @tokens.reset
 
-        tweak( @tree ) if @tree
-        build_html( options )
+        tweak(@tree) if @tree
+        build_html(options)
       end
 
       def stylesheet
-        Highlight.load_style( @style, 'ANTLR3' )
+        Highlight.load_style(@style, 'ANTLR3')
       end
 
-      def full_document( out = StringIO.new )
-        out.puts   "<html>"
-        out.puts   "  <head>"
+      def full_document(out = StringIO.new)
+        out.puts   '<html>'
+        out.puts   '  <head>'
         out.printf "    <title>ANTLR Grammar: %s</title>\n", @name
         out.puts   '    <style type="text/css">'
-        out.puts   stylesheet.fixed_indent( 6 )
+        out.puts   stylesheet.fixed_indent(6)
         out.puts   '    </style>'
         out.puts   '  </head>'
         out.puts   '  <body>'
-        out.puts  @html.to_s.fixed_indent( 4 )
+        out.puts @html.to_s.fixed_indent(4)
         out.puts   '  </body>'
         out.puts   '</html>'
-        return( StringIO === out ? out.string : out )
+        (out.is_a?(StringIO) ? out.string : out)
       end
 
-      def write_to_file( path = '.' )
-        if test( ?d, path )
-          path = path / @name + '.html'
+      def write_to_file(path = '.')
+        path = path / @name + '.html' if test('d', path)
+        open(path, 'w') do |f|
+          full_document(f)
         end
-        open( path, 'w' ) do |f|
-          full_document( f )
-        end
-        return path
+        path
       end
 
       def to_s
@@ -116,11 +123,11 @@ module Highlight
 
       private
 
-      def build_html( options )
-        t = options[ :class ] || 'ANTLR3'
-        id = options[ :id ] || @name
+      def build_html(options)
+        t = options[:class] || 'ANTLR3'
+        id = options[:id] || @name
 
-        @html = Formatters::HTML::CodeBlock.new( t, id, options )
+        @html = Formatters::HTML::CodeBlock.new(t, id, options)
         @tokens.reset
 
         loop do
@@ -132,20 +139,20 @@ module Highlight
             @tokens.peek == WS and token
             case @tokens.peek
             when TOKEN_REF, RULE_REF
-              token( 'nc' )
+              token('nc')
               @tokens.peek == WS and token
-              @tokens.peek == ACTION and token( 'scope_definition' )
+              @tokens.peek == ACTION and token('scope_definition')
             when ACTION
-              token( 'scope_definition' )
+              token('scope_definition')
             end
           when DOLLAR
-            2.times { token( 'si' ) }
+            2.times { token('si') }
           when RULE_REF, TOKEN_REF
             tk = @tokens.look
-            if @rules.has_key?( tk.text )
-              token( categorize( tk ), @rules[ tk.text ] )
+            if @rules.has_key?(tk.text)
+              token(categorize(tk), @rules[tk.text])
             else
-              token( 'gr' )
+              token('gr')
             end
           when EOF then break
           else token
@@ -153,68 +160,70 @@ module Highlight
         end
       end
 
-      def token( type = nil, link = nil )
+      def token(type = nil, link = nil)
         tk = @tokens.consume
-        type ||= categorize( tk )
-        link ? @html.add_token( type, tk.text, :link => link ) :
-        @html.add_token( type, tk.text )
+        type ||= categorize(tk)
+        if link
+          @html.add_token(type, tk.text, link:)
+        else
+          @html.add_token(type, tk.text)
+        end
       end
 
       def named_action
-        if @tokens.look( 3 ).text == '::'
-          3.times { token( 'kt' ) }
-          token( 'kt' )
+        if @tokens.look(3).text == '::'
+          3.times { token('kt') }
+          token('kt')
         else
-          2.times { token( 'kt' ) }
+          2.times { token('kt') }
         end
       end
 
       def tokenize_action
-        scanner = StringScanner.new( @tokens.consume.text )
+        scanner = StringScanner.new(@tokens.consume.text)
         until scanner.eos?
-          raw_source = scanner.scan( /(?:[^\$\\]|\\.)+/m ) and
-          @html.add_token( 'kt', raw_source )
-          if ref = scanner.scan( /\$\w+(?:::\w+)?/ )
-            @html.add_token( 'si', ref )
-          elsif dollar = scanner.scan( /\$\S*/ )
-            @html.add_token( 'gr', dollar )
+          raw_source = scanner.scan(/(?:[^$\\]|\\.)+/m) and
+            @html.add_token('kt', raw_source)
+          if ref = scanner.scan(/\$\w+(?:::\w+)?/)
+            @html.add_token('si', ref)
+          elsif dollar = scanner.scan(/\$\S*/)
+            @html.add_token('gr', dollar)
           end
         end
       end
 
-      def index_rules( rules, tokens )
+      def index_rules(rules, tokens)
         @rules = {}
 
         if tokens
           for node in tokens.children
             t = node.token
-            @rules[ t.text ] = [ t.line - @line_offset, t.start ]
+            @rules[t.text] = [t.line - @line_offset, t.start]
           end
         end
 
         for rule in rules
-          name = rule[ 0 ].token
-          dtoken = @token_index[ name.start ]
+          name = rule[0].token
+          dtoken = @token_index[name.start]
           dtoken.type = RULE_DECLARATION
-          body = rule[ -2 ]
-          @tokens[ body.token_range ].each_cons( 2 ) do |t1, t2|
+          body = rule[-2]
+          @tokens[body.token_range].each_cons(2) do |t1, t2|
             case t1.type
             when RULE_REF, TOKEN_REF
               t2.text =~ /\+?=/ and
-              t1.type = LABEL
-            else
+                t1.type = LABEL
             end
           end
 
-          @rules[ name.text ] = name.line - @line_offset
+          @rules[name.text] = name.line - @line_offset
         end
       end
 
-      def tweak( tree )
+      def tweak(tree)
         # change the grammar -> NAME <-; declaration token from "TOKEN_REF"
-        name_token = @token_index[ tree[ 0 ].token.start ] and
+        name_token = @token_index[tree[0].token.start] and
           name_token.type = NAME
-        
+
         option_blocks = []
         token_list = nil
         rules = []
@@ -228,7 +237,7 @@ module Highlight
         end
 
         for range in option_blocks
-          for t in @tokens[ range ]
+          for t in @tokens[range]
             if t.type == RULE_REF or t.type == TOKEN_REF
               t.type = ID
             elsif t.text == '}'
@@ -237,7 +246,7 @@ module Highlight
           end
         end
 
-        token_list and @tokens[ token_list.token_range ].each do |t|
+        token_list and @tokens[token_list.token_range].each do |t|
           if t.type == TOKEN_REF
             t.type = ID
           elsif t.text == '}'
@@ -245,15 +254,15 @@ module Highlight
           end
         end
 
-        index_rules( rules, token_list )
+        index_rules(rules, token_list)
       end
 
-      def categorize( token )
-        c = CATEGORIES[ token.type ] and return c
+      def categorize(token)
+        c = CATEGORIES[token.type] and return c
         case nm = token.name
         when /^'\w+'$/ then 'k'
         when /^'.+'$/ then 'o'
-        else nm.inflect( :snakecase )
+        else nm.inflect(:snakecase)
         end
       end
     end

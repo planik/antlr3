@@ -1,103 +1,100 @@
 #!/usr/bin/env ruby
-# encoding: utf-8
-
-__DIR__ = File.dirname( __FILE__ )
-load File.join( __DIR__, 'script-helper.rb' )
+__DIR__ = File.dirname(__FILE__)
+load File.join(__DIR__, 'script-helper.rb')
 
 require 'main'
 require 'string-template'
 autoload :Monocle, 'monocle'
 
 class Range
-  def overlap?( other )
-    include?( other.first ) or other.include?( first )
+  def overlap?(other)
+    include?(other.first) or other.include?(first)
   end
 end
 
 Main do
   def out
-    @out ||= Monocle::Output( stdout )
+    @out ||= Monocle::Output(stdout)
   end
-  
+
   mixin :Completion do
-    def complete( description, names, partial )
-      matches = names.select { |name| name.start_with?( partial ) }
+    def complete(description, names, partial)
+      matches = names.select { |name| name.start_with?(partial) }
       case matches.length
       when 0
-        return( nil )
-      when 1 then return( matches.first )
+        nil
+      when 1 then matches.first
       else
-        ambiguous_completion!( description, matches, partial )
+        ambiguous_completion!(description, matches, partial)
       end
     end
-    
-    def ambiguous_completion!( description, matches, partial )
-      stderr.puts( <<-END.here_flow! )
-      | cannot unambiguously complete partial #{ description }
-      | #{ partial.inspect }
+
+    def ambiguous_completion!(description, matches, partial)
+      stderr.puts(<<-END.here_flow!)
+      | cannot unambiguously complete partial #{description}
+      | #{partial.inspect}
       END
-      
-      width = ( out.screen_width * 0.8 ).round
-      out.list( matches, :max_width => width )
-      exit( 1 )
+
+      width = (out.screen_width * 0.8).round
+      out.list(matches, max_width: width)
+      exit(1)
     end
   end
-  
-  mode( :convert ) do
-    argument( :ruby_files ) do
-      description( "The ANTLR output files compiled with -XdbgST" )
-      validate { | f | test( ?f, f ) }
+
+  mode(:convert) do
+    argument(:ruby_files) do
+      description('The ANTLR output files compiled with -XdbgST')
+      validate { |f| test('f', f) }
     end
-    
+
     def run
-      for file in params[ :ruby_files ].values
-        StringTemplate::Markup.convert( file )
+      for file in params[:ruby_files].values
+        StringTemplate::Markup.convert(file)
       end
     end
   end
-  
+
   mode :tree do
     argument :file do
-      arity( 1 )
-      description( 'a ruby source code file with embedded String Template markup data' )
+      arity(1)
+      description('a ruby source code file with embedded String Template markup data')
       cast do |path|
-        begin StringTemplate::Markup.load( path )
-        rescue => e; raise ArgumentError, "failed to load ST markup from #{ path } -- received error #{ e }\n#{ e.backtrace }"
-        end
+        StringTemplate::Markup.load(path)
+      rescue StandardError => e
+        raise ArgumentError, "failed to load ST markup from #{path} -- received error #{e}\n#{e.backtrace}"
       end
     end
-    
-    option( 'line', 'l' ) do
+
+    option('line', 'l') do
       argument_required
-      description( "line number or a range start..finish (or start...finish)" )
-      arity( 1 )
+      description('line number or a range start..finish (or start...finish)')
+      arity(1)
       cast do |num|
         case num
-        when /^(\d+)\.\.\.(\d+)$/ then $1.to_i...$2.to_i
-        when /^(\d+)\.\.(\d+)$/ then $1.to_i..$2.to_i
+        when /^(\d+)\.\.\.(\d+)$/ then Regexp.last_match(1).to_i...Regexp.last_match(2).to_i
+        when /^(\d+)\.\.(\d+)$/ then Regexp.last_match(1).to_i..Regexp.last_match(2).to_i
         when /^\d+$/
           i = num.to_i
           i..i
         else
-          raise ArgumentError, "line number argument is not a valid integer or integer range"
+          raise ArgumentError, 'line number argument is not a valid integer or integer range'
         end
       end
     end
-    
+
     def run
-      markup = params[ :file ].value
-      range = params[ :line ].value || markup.top.line_span
+      markup = params[:file].value
+      range = params[:line].value || markup.top.line_span
       rows = []
-      
-      nodes = markup.index.select do | node |
-        node.line_span.overlap?( range )
+
+      nodes = markup.index.select do |node|
+        node.line_span.overlap?(range)
       end
-      
+
       for node in nodes
-        puts( node.node_display )
+        puts(node.node_display)
       end
     end
-    
   end
 
   run { help! }

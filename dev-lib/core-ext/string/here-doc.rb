@@ -1,14 +1,12 @@
 #!/usr/bin/ruby
-# encoding: utf-8
-
 class String
   def here_indent!
-    gsub!( /^[ \t]*\|[ \t]?/, '' )
-    return( self )
+    gsub!(/^[ \t]*\|[ \t]?/, '')
+    self
   end
-  
+
   def here_flow!
-    here_indent!.gsub!(/\n\s+/,' ')
-    return(self)
+    here_indent!.gsub!(/\n\s+/, ' ')
+    self
   end
 end
