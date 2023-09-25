@@ -217,12 +217,11 @@ module ANTLR3
         end
 
         @antlr_version = [::Regexp.last_match(1), ::Regexp.last_match(2), ::Regexp.last_match(3),
-                          ::Regexp.last_match(4)].map! { |str|
+                          ::Regexp.last_match(4)].map! do |str|
           str.to_i
-        }
+        end
         timestamp = ::Regexp.last_match(5).strip
         # @antlr_release_time = $5.empty? ? nil : Time.parse($5)
-
       end
 
       # this method is used to generate return-value structures for
@@ -235,7 +234,7 @@ module ANTLR3
       # name constant that just points to the generic return
       # value.
       def define_return_scope(*members)
-        if members.empty? then
+        if members.empty?
           generic_return_scope
         else
           members += return_scope_members
@@ -256,9 +255,9 @@ module ANTLR3
       # scope for a recognizer
       def generic_return_scope
         @generic_return_scope ||= begin
-                                    struct = Struct.new(*return_scope_members)
-                                    const_set(:Return, struct)
-                                  end
+          struct = Struct.new(*return_scope_members)
+          const_set(:Return, struct)
+        end
       end
 
       def imported_grammars
@@ -295,7 +294,9 @@ module ANTLR3
       private :imports
 
       def rules
-        self::RULE_METHODS.dup rescue []
+        self::RULE_METHODS.dup
+      rescue StandardError
+        []
       end
 
       def default_rule
@@ -316,10 +317,14 @@ module ANTLR3
 
       def token_class
         @token_class ||= begin
-                           self::Token rescue
-                             superclass.token_class rescue
-                               ANTLR3::CommonToken
-                         end
+          begin
+            self::Token
+          rescue StandardError
+            superclass.token_class
+          end
+        rescue StandardError
+          ANTLR3::CommonToken
+        end
       end
 
       private :generated_using
@@ -373,7 +378,11 @@ module ANTLR3
     # to be rewound to its initial position
     def reset
       @state and @state.reset!
-      @input and @input.reset rescue nil
+      begin
+        @input and @input.reset
+      rescue StandardError
+        nil
+      end
     end
 
     # Attempt to match the current input symbol the token type
@@ -472,11 +481,19 @@ module ANTLR3
     # within an error message
     #
     def token_error_display(token)
-      unless text = token.text || (token.source_text rescue nil)
+      unless text = token.text || begin
+        token.source_text
+      rescue StandardError
+        nil
+      end
         text =
           if token.type == EOF
             '<EOF>'
-          elsif name = token_name(token.type) rescue nil
+          elsif name = begin
+            token_name(token.type)
+          rescue StandardError
+            nil
+          end
             "<#{name}>"
           elsif token.respond_to?(:name)
             "<#{token.name}>"
@@ -786,7 +803,6 @@ module ANTLR3
         break unless local_follow_set.include?(EOR_TOKEN_TYPE)
 
         follow_set.delete(EOR_TOKEN_TYPE) if index > 0
-
       end
       follow_set
     end
@@ -994,7 +1010,7 @@ module ANTLR3
     end
 
     def self.main(argv = ARGV, options = {})
-      if argv.is_a?(::Hash) then
+      if argv.is_a?(::Hash)
         options = argv
         argv = ARGV
       end
@@ -1004,15 +1020,15 @@ module ANTLR3
 
     def self.associated_parser
       @associated_parser ||= begin
-                               @grammar_home and @grammar_home::Parser
-                             rescue NameError
-                               grammar_name = @grammar_home.name.split('::').last
-                               begin
-                                 require "#{grammar_name}Parser"
-                                 @grammar_home::Parser
-                               rescue LoadError, NameError
-                               end
-                             end
+        @grammar_home and @grammar_home::Parser
+      rescue NameError
+        grammar_name = @grammar_home.name.split('::').last
+        begin
+          require "#{grammar_name}Parser"
+          @grammar_home::Parser
+        rescue LoadError, NameError
+        end
+      end
     end
 
     def initialize(input, options = {})
@@ -1108,7 +1124,7 @@ module ANTLR3
 
     def match_range(min, max)
       char = @input.peek
-      if char.between?(min, max) then
+      if char.between?(min, max)
         @input.consume
       else
         @state.backtracking > 0 and raise BacktrackingFailed
@@ -1145,7 +1161,11 @@ module ANTLR3
     end
 
     def error_message(e)
-      char = character_error_display(e.symbol) rescue nil
+      char = begin
+        character_error_display(e.symbol)
+      rescue StandardError
+        nil
+      end
       case e
       when Error::MismatchedToken
         expecting = character_error_display(e.expecting)
@@ -1193,7 +1213,7 @@ module ANTLR3
     end
 
     def trace_in(rule_name, rule_index)
-      symbol = if symbol = @input.look and symbol != EOF then
+      symbol = if symbol = @input.look and symbol != EOF
                  symbol.inspect
                else
                  '<EOF>'
@@ -1203,7 +1223,7 @@ module ANTLR3
     end
 
     def trace_out(rule_name, rule_index)
-      symbol = if symbol = @input.look and symbol != EOF then
+      symbol = if symbol = @input.look and symbol != EOF
                  symbol.inspect
                else
                  '<EOF>'
@@ -1213,7 +1233,7 @@ module ANTLR3
     end
 
     def create_token(&b)
-      if block_given? then
+      if block_given?
         super(&b)
       else
         super do |t|
@@ -1267,7 +1287,7 @@ module ANTLR3
   #
   class Parser < Recognizer
     def self.main(argv = ARGV, options = {})
-      if argv.is_a?(::Hash) then
+      if argv.is_a?(::Hash)
         options = argv
         argv = ARGV
       end
@@ -1277,15 +1297,15 @@ module ANTLR3
 
     def self.associated_lexer
       @associated_lexer ||= begin
-                              @grammar_home and @grammar_home::Lexer
-                            rescue NameError
-                              grammar_name = @grammar_home.name.split('::').last
-                              begin
-                                require "#{grammar_name}Lexer"
-                                @grammar_home::Lexer
-                              rescue LoadError, NameError
-                              end
-                            end
+        @grammar_home and @grammar_home::Lexer
+      rescue NameError
+        grammar_name = @grammar_home.name.split('::').last
+        begin
+          require "#{grammar_name}Lexer"
+          @grammar_home::Lexer
+        rescue LoadError, NameError
+        end
+      end
     end
 
     def initialize(input, options = {})
@@ -1304,7 +1324,11 @@ module ANTLR3
         elsif @input.token_class
           @input.token_class.new
         else
-          create_token rescue CommonToken.new
+          begin
+            create_token
+          rescue StandardError
+            CommonToken.new
+          end
         end
 
       t.type = expected_type
