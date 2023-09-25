@@ -36,4 +36,4 @@ gem 'yard'
 
 gem 'syck'
 
-gem 'syck' if RUBY_VERSION =~ /^2\./
+# gem 'syck' if RUBY_VERSION =~ /^2\./
