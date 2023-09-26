@@ -384,8 +384,8 @@ class StringStream
   # the entire string that is wrapped by the stream
   attr_reader :data
   attr_reader :string
-  
-  if RUBY_VERSION =~ /^(?:1\.9|2\.)/
+
+  if RUBY_VERSION >= '1.9.0'
     
     # creates a new StringStream object where +data+ is the string data to stream.
     # accepts the following options in a symbol-to-value hash:
@@ -417,9 +417,10 @@ class StringStream
       
       @string[ index ]
     end
-    
+
+
   else
-    
+    # Ruby 1.8
     # creates a new StringStream object where +data+ is the string data to stream.
     # accepts the following options in a symbol-to-value hash:
     #

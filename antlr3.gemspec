@@ -1,9 +1,10 @@
+require_relative 'lib/antlr3/version'
 Gem::Specification.new do |spec|
 
   # Siehe antlr3.yml
   #
   spec.name = 'antlr3'
-  spec.version = '1.10.1'
+  spec.version = ANTLR3::VERSION_STRING
   spec.authors = %w[Kyle Yetter]
   spec.email = %w[kcy5b@yahoo.com]
 

@@ -183,7 +183,7 @@ $proj = $project = Project.load( project_top, config_file ) do
       when /^1\.9/
         YAML::ENGINE.yamler = 'syck'
         YAML
-      when /^2\./
+      when /^2\./, /^3\./
         require 'syck'
         Syck
       else

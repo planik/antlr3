@@ -165,9 +165,10 @@ class DFA
     | provided in the DFA subclass constants.
     END
   end
-  
-  if RUBY_VERSION =~ /^(?:1\.9|2\.)/
-    
+
+  if RUBY_VERSION >= '1.9.0'
+
+
     def predict( input )
       mark = input.mark
       state = 0

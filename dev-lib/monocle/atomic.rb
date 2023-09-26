@@ -7,7 +7,8 @@
 require 'strscan'
 
 module Monocle
-  if RUBY_VERSION =~ /^1\.8/
+  # Ruby 1.8
+  if RUBY_VERSION < '1.9.0'
     MULTIBYTE_CHARACTER = %r<
       [\xC2-\xDF][\x80-\xBF]
     | [\xE0-\xEF][\x80-\xBF]{2}
@@ -43,8 +44,9 @@ class SingleLine < ::String
   
   @@width = {}
   @@invisible_size = {}
-  
-  if RUBY_VERSION =~ /^1\.8/
+
+  # Ruby 1.8
+  if RUBY_VERSION < '1.9.0'
     def char_byte( n )
       n.zero? and return( 0 )
       seen = byte = 0
@@ -71,7 +73,7 @@ class SingleLine < ::String
       end
     end
     
-  elsif RUBY_VERSION =~ /^(?:1\.9|2\.)/
+  else
     
     def char_byte( n )
       seen = byte = 0
@@ -210,7 +212,7 @@ class SingleLine < ::String
   end
   
   def tile( size )
-    width == 0 and return( )
+    width == 0 and return
     full, partial = size.divmod( width )
     self * full << partial( partial )
   end
