@@ -1,7 +1,6 @@
 source "https://rubygems.org"
 
-
-ruby '2.7.4'
+ruby '3.2.2'
 
 # main is a command-line app builder library used in the scripts
 gem "main", "4.2.0"
