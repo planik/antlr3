@@ -2,6 +2,9 @@
 
 === Notizen von Optor
 2023-09-26: In diesem Gem gibt es Weichen, die je nach Ruby Version verschiedenen COde aktivieren. Siehe z.B RUBY_VERSION in lib/antlr3/streams.rb
+Diese Weichen sind so programmiert, dass Ruby_VERSION 3 wie 1.8 behandelt wird. Es sollte aber wie 2 behandelt werden.
+
+
 2023-09-07: Auf Ruby3 gewechselt. Dieses gem funktioniert nicht mehr, da nicht mit Ruby3 kompatibel. Da es nicht mehr gepflegt wird, müssen wir es selber auf Ruby3 aktualiseren.
 
 ==== Tests
