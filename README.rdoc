@@ -1,7 +1,8 @@
 = ANTLR 3 for Ruby
 
 === Notizen von Optor
-2023-09-26: In diesem Gem gibt es Weichen, die je nach Ruby Version verschiedenen COde aktivieren. Siehe z.B RUBY_VERSION in lib/antlr3/streams.rb
+2023-09-26: In diesem Gem gibt es Weichen, die je nach Ruby Version verschiedenen COde aktivieren. Siehe z.B `RUBY_VERSION` in `lib/antlr3/streams.rb`
+
 2023-09-07: Auf Ruby3 gewechselt. Dieses gem funktioniert nicht mehr, da nicht mit Ruby3 kompatibel. Da es nicht mehr gepflegt wird, müssen wir es selber auf Ruby3 aktualiseren.
 
 ==== Tests
